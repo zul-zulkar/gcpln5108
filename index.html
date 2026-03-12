@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Monitoring FASIH – BPS Bali Utara</title>
+  <style>
+    :root {
+      --primary:       #1F4E79;
+      --primary-light: #2E75B6;
+      --blue:  #3B82F6;
+      --purple:#8B5CF6;
+      --green: #10B981;
+      --amber: #F59E0B;
+      --red:   #EF4444;
+      --bg:    #F1F5F9;
+      --card:  #FFFFFF;
+      --text:  #1E293B;
+      --muted: #64748B;
+      --border:#E2E8F0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── Header ─────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #1a3f6f 0%, #2E75B6 100%);
+      color: #fff;
+      padding: 0.9rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,.25);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .hdr-left { display: flex; align-items: center; gap: 0.75rem; }
+    .hdr-icon {
+      width: 38px; height: 38px;
+      background: rgba(255,255,255,.18);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem; flex-shrink: 0;
+    }
+    .hdr-title h1 { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+    .hdr-title p  { font-size: 0.73rem; opacity: .8; margin-top: .1rem; }
+
+    .hdr-right { display: flex; align-items: center; gap: .6rem; }
+    #lastUpdated { font-size: .72rem; opacity: .85; white-space: nowrap; }
+
+    .btn-refresh {
+      display: flex; align-items: center; gap: .3rem;
+      background: rgba(255,255,255,.2);
+      border: 1px solid rgba(255,255,255,.35);
+      color: #fff;
+      padding: .38rem .75rem;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: .78rem;
+      font-weight: 600;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    .btn-refresh:hover { background: rgba(255,255,255,.3); }
+    .btn-refresh.loading { opacity: .7; pointer-events: none; }
+    .spin { display: inline-block; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Main ───────────────────────────────────────── */
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+
+    /* ── Summary Cards ──────────────────────────────── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .s-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 1.1rem 1.2rem;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+    }
+
+    .s-card-header {
+      display: flex; align-items: center; gap: .5rem;
+      margin-bottom: .85rem;
+    }
+    .s-badge {
+      font-size: .68rem; font-weight: 800; letter-spacing: .07em;
+      text-transform: uppercase;
+      padding: .2rem .55rem;
+      border-radius: 5px;
+    }
+    .s-badge.pasca { background:#DBEAFE; color:#2563EB; }
+    .s-badge.praba { background:#EDE9FE; color:#7C3AED; }
+    .s-count { font-size: .78rem; color: var(--muted); margin-left: auto; }
+
+    .s-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .5rem;
+      margin-bottom: .85rem;
+    }
+    .s-stat {
+      text-align: center;
+      padding: .55rem .4rem;
+      border-radius: 10px;
+    }
+    .s-stat.open     { background: #FEF3C7; }
+    .s-stat.submit   { background: #D1FAE5; }
+    .s-stat.reject   { background: #FEE2E2; }
+
+    .s-stat-num {
+      font-size: 1.35rem; font-weight: 800; line-height: 1;
+    }
+    .s-stat.open   .s-stat-num { color: #D97706; }
+    .s-stat.submit .s-stat-num { color: #059669; }
+    .s-stat.reject .s-stat-num { color: #DC2626; }
+
+    .s-stat-lbl {
+      font-size: .62rem; font-weight: 700; text-transform: uppercase;
+      color: var(--muted); margin-top: .15rem;
+    }
+
+    /* Progress */
+    .prog-meta {
+      display: flex; justify-content: space-between;
+      font-size: .72rem; color: var(--muted); margin-bottom: .3rem;
+    }
+    .prog-meta strong { color: var(--text); }
+    .prog-track {
+      background: #E2E8F0; border-radius: 999px; height: 9px; overflow: hidden;
+    }
+    .prog-fill { height: 100%; border-radius: 999px; transition: width .6s ease; }
+    .pasca .prog-fill { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+    .praba .prog-fill { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+
+    /* ── Top Performers ─────────────────────────────── */
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .top-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+    }
+    .top-card h3 {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); margin-bottom: .75rem;
+      display: flex; align-items: center; gap: .4rem;
+    }
+    .top-row {
+      display: flex; align-items: center;
+      padding: .35rem 0;
+      border-bottom: 1px solid var(--border);
+      gap: .6rem;
+    }
+    .top-row:last-child { border-bottom: none; }
+    .top-rank {
+      font-size: .7rem; font-weight: 700; color: var(--muted);
+      width: 1.4rem; text-align: center; flex-shrink: 0;
+    }
+    .top-rank.gold   { color: #D97706; }
+    .top-rank.silver { color: #9CA3AF; }
+    .top-rank.bronze { color: #A16207; }
+    .top-nama { flex: 1; font-weight: 600; font-size: .82rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-val { font-weight: 800; font-size: .9rem; color: #059669; flex-shrink: 0; }
+
+    /* ── Chart ──────────────────────────────────────── */
+    .chart-wrap {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+      margin-bottom: 1.25rem;
+    }
+    .chart-wrap h3 {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); margin-bottom: .75rem;
+    }
+    .chart-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .chart-inner  { position: relative; height: 360px; min-width: 600px; }
+
+    /* ── Table ──────────────────────────────────────── */
+    .tbl-card {
+      background: var(--card);
+      border-radius: 14px;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+      overflow: hidden;
+    }
+
+    .tbl-header {
+      padding: .9rem 1.2rem;
+      display: flex; align-items: center; flex-wrap: wrap; gap: .6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tbl-header h2 { font-size: .95rem; font-weight: 700; flex: 1; min-width: 120px; }
+    .tbl-header h2 span { font-weight: 400; font-size: .78rem; color: var(--muted); }
+
+    .search-box {
+      display: flex; align-items: center; gap: .4rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .35rem .65rem;
+      background: #F8FAFC;
+    }
+    .search-box input {
+      border: none; outline: none; background: transparent;
+      font-size: .83rem; width: 180px; color: var(--text);
+    }
+    .search-box svg { color: var(--muted); flex-shrink: 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+
+    thead tr:first-child th { padding: .55rem .7rem .3rem; }
+    thead tr:last-child  th { padding: .3rem .7rem .55rem; }
+
+    th {
+      background: #F8FAFC;
+      color: var(--muted); font-weight: 700;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
+      white-space: nowrap;
+      border-bottom: 2px solid var(--border);
+      cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    th:hover { background: #EDF2F7; }
+    th.sort-asc::after  { content: ' ↑'; color: var(--blue); }
+    th.sort-desc::after { content: ' ↓'; color: var(--blue); }
+
+    .th-pasca { background: rgba(59,130,246,.06) !important; color: #2563EB !important; text-align: center; }
+    .th-praba { background: rgba(139,92,246,.06)  !important; color: #7C3AED !important; text-align: center; }
+    .th-span  { font-size: .72rem; }
+
+    td {
+      padding: .55rem .7rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #F8FAFC; }
+
+    /* Sticky header + horizontal scroll */
+    .tbl-scroll { overflow: auto; -webkit-overflow-scrolling: touch; position: relative; max-height: 520px; }
+    thead tr:first-child th { position: sticky; top: 0;      z-index: 4; }
+    thead tr:last-child  th { position: sticky; top: 1.75rem; z-index: 4; }
+    .col-freeze-no {
+      position: sticky; left: 0; z-index: 3;
+      background: #F8FAFC;
+      min-width: 44px; width: 44px;
+      box-shadow: none;
+    }
+    .col-nama { min-width: 130px; width: 130px; }
+    tbody .col-freeze-no { background: #fff; }
+    tr:hover .col-freeze-no { background: #F8FAFC; }
+
+    .td-no   { color: var(--muted); font-size: .75rem; text-align: center; }
+    .td-nama { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .td-pasca { background: rgba(59,130,246,.03); text-align: right; }
+    .td-praba { background: rgba(139,92,246,.03); text-align: right; }
+
+    .n-open   { color: #D97706; font-weight: 700; }
+    .n-submit { color: #059669; font-weight: 700; }
+    .n-reject { color: #DC2626; font-weight: 700; }
+    .n-zero   { color: #CBD5E1; }
+
+    .badge-err { background: #FEE2E2; color: #DC2626; font-size: .68rem; padding: .1rem .35rem; border-radius: 4px; font-weight: 700; }
+    .badge-nm  { background: #F1F5F9; color: #94A3B8; font-size: .68rem; padding: .1rem .35rem; border-radius: 4px; }
+
+    /* Mobile: hide email + reject cols */
+    @media (max-width: 600px) {
+      .hide-sm { display: none; }
+      .search-box input { width: 130px; }
+      .hdr-title h1 { font-size: .9rem; }
+    }
+
+    /* ── Loading / Error ────────────────────────────── */
+    .loading-box {
+      text-align: center; padding: 3.5rem 1rem; color: var(--muted);
+    }
+    .loader {
+      width: 40px; height: 40px;
+      border: 3px solid #E2E8F0;
+      border-top-color: #2E75B6;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto .75rem;
+    }
+    .err-box {
+      background: #FEF2F2; border: 1px solid #FECACA;
+      color: #991B1B; border-radius: 10px;
+      padding: 1rem 1.2rem; margin: 0 0 1rem;
+      font-size: .85rem; line-height: 1.5;
+    }
+
+    footer {
+      text-align: center; font-size: .72rem;
+      color: var(--muted); padding: 1rem .5rem 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <div class="hdr-icon">📊</div>
+    <div class="hdr-title">
+      <h1>Dashboard Monitoring FASIH</h1>
+      <p>BPS Bali Utara &nbsp;·&nbsp; [55UTR] &nbsp;·&nbsp; Pascabayar &amp; Prabayar</p>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span id="lastUpdated">–</span>
+    <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
+      <span id="refreshIcon">🔄</span> Refresh
+    </button>
+  </div>
+</header>
+
+<main>
+  <div id="errBox"></div>
+  <div id="content">
+    <div class="loading-box">
+      <div class="loader"></div>
+      <p>Memuat data dari Google Sheets…</p>
+    </div>
+  </div>
+</main>
+
+<footer>Dashboard Monitoring FASIH BPS · Data diambil dari Google Sheets · Auto-refresh setiap 5 menit</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const SHEET_ID = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+// Uses JSONP via gviz/tq — works from file:// (no CORS issue)
+// range=A3:K500 skips the 2 header rows (section labels + col names)
+const GVZ_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:K500&gid=0`;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allData   = [];
+let filtered  = [];
+let sortCol    = 'no';
+let sortDir    = 'asc';
+let chartPasca = null;
+let chartPraba = null;
+
+// ── JSONP loader ──────────────────────────────────────────────────────────────
+function loadData() {
+  const btn  = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  btn.classList.add('loading');
+  icon.textContent = '⏳';
+  document.getElementById('lastUpdated').textContent = 'Memuat…';
+  document.getElementById('errBox').innerHTML = '';
+
+  // Remove old script tag to allow re-fetch
+  const old = document.getElementById('_gsheet_script');
+  if (old) old.remove();
+
+  const script = document.createElement('script');
+  script.id  = '_gsheet_script';
+  script.src = GVZ_BASE + '&t=' + Date.now();
+  script.onerror = () => {
+    document.getElementById('errBox').innerHTML =
+      `<div class="err-box">❌ Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
+    document.getElementById('lastUpdated').textContent = 'Gagal';
+    btn.classList.remove('loading');
+    icon.textContent = '🔄';
+  };
+  document.head.appendChild(script);
+}
+
+// ── JSONP Callback (called by Google's response) ──────────────────────────────
+function _gsheetCB(data) {
+  const btn  = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+
+  try {
+    const rows = data.table.rows;
+    // Cols: 0=No, 1=Nama(pasca), 2=Email(pasca), 3=Open(pasca), 4=Submit(pasca), 5=Reject(pasca)
+    //       6=Nama(praba), 7=Email(praba), 8=Open(praba), 9=Submit(praba), 10=Reject(praba)
+    allData = [];
+    rows.forEach((row, i) => {
+      const c  = row.c || [];
+      const cv = idx => (c[idx] && c[idx].v !== null && c[idx].v !== undefined) ? c[idx].v : null;
+      const nama = cv(1) || cv(6);
+      if (!nama) return;
+      allData.push({
+        no:           typeof cv(0) === 'number' ? cv(0) : (i + 1),
+        nama_pasca:   cv(1) || '',
+        email_pasca:  cv(2) || '',
+        open_pasca:   cv(3),
+        submit_pasca: cv(4),
+        reject_pasca: cv(5),
+        nama_praba:   cv(6) || '',
+        email_praba:  cv(7) || '',
+        open_praba:   cv(8),
+        submit_praba: cv(9),
+        reject_praba: cv(10),
+      });
+    });
+
+    filtered = [...allData];
+    render();
+
+    const now = new Date();
+    const ts = now.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    document.getElementById('lastUpdated').textContent = `Update: ${ts}`;
+  } catch (e) {
+    document.getElementById('errBox').innerHTML =
+      `<div class="err-box">❌ Gagal memproses data: <strong>${e.message}</strong></div>`;
+    document.getElementById('lastUpdated').textContent = 'Error';
+  } finally {
+    btn.classList.remove('loading');
+    icon.textContent = '🔄';
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const n = v => (typeof v === 'number' ? v : 0);
+
+function totals(arr, sfx) {
+  return arr.reduce((a, d) => ({
+    open:   a.open   + n(d[`open_${sfx}`]),
+    submit: a.submit + n(d[`submit_${sfx}`]),
+    reject: a.reject + n(d[`reject_${sfx}`]),
+  }), { open: 0, submit: 0, reject: 0 });
+}
+
+function pct(sub, open, rej) {
+  const tot = sub + open + rej;
+  return tot > 0 ? ((sub / tot) * 100).toFixed(1) : '0.0';
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) return '<span class="n-zero">–</span>';
+  if (typeof v === 'string') {
+    if (v === 'ERR')      return '<span class="badge-err">ERR</span>';
+    if (v === 'NO_MATCH') return '<span class="badge-nm">N/A</span>';
+    return v;
+  }
+  return v === 0
+    ? '<span class="n-zero">0</span>'
+    : v.toLocaleString('id-ID');
+}
+
+function fmtColored(v, cls) {
+  if (v === null || v === undefined) return '<span class="n-zero">–</span>';
+  if (typeof v === 'string') {
+    if (v === 'ERR')      return '<span class="badge-err">ERR</span>';
+    if (v === 'NO_MATCH') return '<span class="badge-nm">N/A</span>';
+  }
+  if (v === 0) return '<span class="n-zero">0</span>';
+  return `<span class="${cls}">${n(v).toLocaleString('id-ID')}</span>`;
+}
+
+function toProper(nama) {
+  return nama.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function shortName(nama) {
+  return toProper(nama).split(' ').slice(0, 2).join(' ');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  const tPasca = totals(allData, 'pasca');
+  const tPraba = totals(allData, 'praba');
+
+  document.getElementById('content').innerHTML = `
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+      ${summaryCard('pasca', 'PASCABAYAR', tPasca)}
+      ${summaryCard('praba', 'PRABAYAR',   tPraba)}
+    </div>
+
+    <!-- Top Submitters -->
+    <div class="top-grid">
+      ${topCard('pasca', '🏆 Top Submit – Pascabayar')}
+      ${topCard('praba', '🏆 Top Submit – Prabayar')}
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-wrap">
+      <h3>📈 Submit vs Open – Pascabayar</h3>
+      <div class="chart-scroll">
+        <div class="chart-inner" id="chartWrapPasca"><canvas id="chartPasca"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <h3>📈 Submit vs Open – Prabayar</h3>
+      <div class="chart-scroll">
+        <div class="chart-inner" id="chartWrapPraba"><canvas id="chartPraba"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="tbl-card">
+      <div class="tbl-header">
+        <h2>Detail Rekap &nbsp;<span id="tblCount"></span></h2>
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Cari nama / email…" oninput="doSearch()" />
+        </div>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2" class="col-freeze-no" style="vertical-align:middle;text-align:center;cursor:default">No</th>
+              <th rowspan="2" onclick="sortBy('nama_pasca')" class="col-nama" style="vertical-align:middle">Nama</th>
+              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="3" class="th-praba th-span">Prabayar</th>
+            </tr>
+            <tr>
+              <th class="th-pasca" onclick="sortBy('open_pasca')">Open</th>
+              <th class="th-pasca" onclick="sortBy('submit_pasca')">Submit</th>
+              <th class="th-pasca hide-sm" onclick="sortBy('reject_pasca')">Reject</th>
+              <th class="th-praba" onclick="sortBy('open_praba')">Open</th>
+              <th class="th-praba" onclick="sortBy('submit_praba')">Submit</th>
+              <th class="th-praba hide-sm" onclick="sortBy('reject_proba')">Reject</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  renderTable();
+  renderChart();
+}
+
+function summaryCard(sfx, label, t) {
+  const rate = pct(t.submit, t.open, t.reject);
+  const cls  = sfx === 'pasca' ? 'pasca' : 'praba';
+  return `
+    <div class="s-card ${cls}">
+      <div class="s-card-header">
+        <span class="s-badge ${cls}">${label}</span>
+        <span class="s-count">${allData.length} petugas</span>
+      </div>
+      <div class="s-stats">
+        <div class="s-stat open">
+          <div class="s-stat-num">${t.open.toLocaleString('id-ID')}</div>
+          <div class="s-stat-lbl">Open</div>
+        </div>
+        <div class="s-stat submit">
+          <div class="s-stat-num">${t.submit.toLocaleString('id-ID')}</div>
+          <div class="s-stat-lbl">Submitted</div>
+        </div>
+        <div class="s-stat reject">
+          <div class="s-stat-num">${t.reject.toLocaleString('id-ID')}</div>
+          <div class="s-stat-lbl">Rejected</div>
+        </div>
+      </div>
+      <div class="prog-section">
+        <div class="prog-meta">
+          <span>Tingkat Submit</span>
+          <strong>${rate}%</strong>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:${rate}%"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function topCard(sfx, title) {
+  const top5 = [...allData]
+    .filter(d => typeof d[`submit_${sfx}`] === 'number')
+    .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]))
+    .slice(0, 5);
+  const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+  const rankCls = ['gold','silver','bronze','',''];
+  const rows = top5.map((d, i) => `
+    <div class="top-row">
+      <span class="top-rank ${rankCls[i]}">${medals[i]}</span>
+      <span class="top-nama" title="${toProper(d[`nama_${sfx}`] || d.nama_pasca)}">${toProper(d[`nama_${sfx}`] || d.nama_pasca)}</span>
+      <span class="top-val">${n(d[`submit_${sfx}`]).toLocaleString('id-ID')}</span>
+    </div>`).join('');
+  return `
+    <div class="top-card">
+      <h3>${title}</h3>
+      ${rows || '<p style="color:var(--muted);font-size:.8rem">Belum ada data</p>'}
+    </div>`;
+}
+
+function renderTable() {
+  const q     = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  filtered    = allData.filter(d => {
+    const nama  = (d.nama_pasca || d.nama_praba).toLowerCase();
+    const email = (d.email_pasca || d.email_praba).toLowerCase();
+    return !q || nama.includes(q) || email.includes(q);
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    const va = a[sortCol], vb = b[sortCol];
+    if (typeof va === 'number' && typeof vb === 'number')
+      return sortDir === 'asc' ? va - vb : vb - va;
+    const sa = String(va ?? ''), sb = String(vb ?? '');
+    return sortDir === 'asc' ? sa.localeCompare(sb, 'id') : sb.localeCompare(sa, 'id');
+  });
+
+  const count = document.getElementById('tblCount');
+  if (count) count.textContent = `(${filtered.length} dari ${allData.length})`;
+
+  const body = document.getElementById('tblBody');
+  if (!body) return;
+
+  if (!filtered.length) {
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted)">Tidak ditemukan</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = filtered.map((d, i) => {
+    const namaRaw = d.nama_pasca || d.nama_praba;
+    const nama    = toProper(namaRaw);
+    return `<tr>
+      <td class="td-no col-freeze-no">${i + 1}</td>
+      <td class="td-nama col-nama" title="${nama}">${nama}</td>
+      <td class="td-pasca">${fmtColored(d.open_pasca,   'n-open')}</td>
+      <td class="td-pasca">${fmtColored(d.submit_pasca, 'n-submit')}</td>
+      <td class="td-pasca hide-sm">${fmtColored(d.reject_pasca, 'n-reject')}</td>
+      <td class="td-praba">${fmtColored(d.open_praba,   'n-open')}</td>
+      <td class="td-praba">${fmtColored(d.submit_praba, 'n-submit')}</td>
+      <td class="td-praba hide-sm">${fmtColored(d.reject_praba, 'n-reject')}</td>
+    </tr>`;
+  }).join('');
+
+  // Highlight sort column header
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+  document.querySelectorAll('th').forEach(th => {
+    if (th.getAttribute('onclick') === `sortBy('${sortCol}')`)
+      th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+}
+
+function renderChart() {
+  renderOneChart('pasca');
+  renderOneChart('praba');
+}
+
+function renderOneChart(sfx) {
+  const isPasca = sfx === 'pasca';
+  const ctx  = document.getElementById(isPasca ? 'chartPasca' : 'chartPraba');
+  const wrap = document.getElementById(isPasca ? 'chartWrapPasca' : 'chartWrapPraba');
+  if (!ctx || !wrap) return;
+
+  // Destroy old instance
+  if (isPasca) { if (chartPasca) { chartPasca.destroy(); chartPasca = null; } }
+  else         { if (chartPraba) { chartPraba.destroy(); chartPraba = null; } }
+
+  // Sort by submit descending so largest bars are on the left
+  const sorted = [...allData]
+    .filter(d => typeof d[`submit_${sfx}`] === 'number' || d[`submit_${sfx}`] === 0)
+    .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]));
+
+  const chartW = Math.max(480, sorted.length * 90);
+  wrap.style.width = chartW + 'px';
+
+  const labels    = sorted.map(d => shortName(d[`nama_${sfx}`] || d.nama_pasca || d.nama_praba));
+  const fullNames = sorted.map(d => toProper(d[`nama_${sfx}`] || d.nama_pasca || d.nama_praba));
+  const rgb    = isPasca ? '59,130,246' : '139,92,246';
+  const title  = isPasca ? 'Pascabayar' : 'Prabayar';
+
+  // Set canvas size BEFORE Chart.js init
+  ctx.width  = chartW;
+  ctx.height = 320;
+
+  const inst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: `Submit ${title}`,
+          data: sorted.map(d => n(d[`submit_${sfx}`])),
+          backgroundColor: `rgba(${rgb},0.85)`,
+          borderRadius: 4,
+        },
+        {
+          label: `Open ${title}`,
+          data: sorted.map(d => n(d[`open_${sfx}`])),
+          backgroundColor: `rgba(${rgb},0.25)`,
+          borderRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
+        tooltip: {
+          callbacks: {
+            title: items => fullNames[items[0].dataIndex],
+            label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+
+  if (isPasca) chartPasca = inst;
+  else         chartPraba = inst;
+}
+
+// ── Interactions ──────────────────────────────────────────────────────────────
+function doSearch() { renderTable(); }
+
+function sortBy(col) {
+  sortDir = sortCol === col && sortDir === 'asc' ? 'desc' : 'asc';
+  sortCol = col;
+  renderTable();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+setInterval(loadData, 5 * 60 * 1000);   // auto-refresh every 5 min
+loadData();
+</script>
+</body>
+</html>
