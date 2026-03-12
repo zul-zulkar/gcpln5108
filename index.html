@@ -85,6 +85,78 @@
       padding: 1.25rem 1rem 2rem;
     }
 
+    /* ── ULP Filter Bar ──────────────────────────────── */
+    .ulp-filter {
+      display: flex; flex-wrap: wrap; gap: .4rem;
+      margin-bottom: 1rem;
+    }
+    .ulp-btn {
+      padding: .35rem .9rem;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: .78rem; font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .ulp-btn:hover { border-color: var(--primary-light); color: var(--primary-light); }
+    .ulp-btn.active {
+      background: var(--primary); border-color: var(--primary); color: #fff;
+    }
+
+    /* ── ULP Overview ────────────────────────────────── */
+    .ulp-overview {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 1rem 1.2rem;
+      box-shadow: 0 1px 5px rgba(0,0,0,.07);
+      margin-bottom: 1.25rem;
+    }
+    .ulp-overview-header {
+      font-size: .78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--muted); margin-bottom: .75rem;
+    }
+    .ulp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: .65rem;
+    }
+    .ulp-row {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: .7rem .9rem;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .ulp-row:hover { border-color: var(--primary-light); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    .ulp-row.ulp-active { border-color: var(--primary); background: #EFF6FF; }
+    .ulp-row-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: .5rem;
+    }
+    .ulp-row-name { font-weight: 700; font-size: .88rem; }
+    .ulp-row-count { font-size: .7rem; color: var(--muted); }
+    .ulp-prog-row {
+      display: flex; align-items: center; gap: .45rem;
+      margin-bottom: .28rem;
+    }
+    .ulp-prog-row:last-child { margin-bottom: 0; }
+    .ulp-badge {
+      font-size: .58rem; font-weight: 800; letter-spacing: .04em;
+      padding: .1rem .3rem; border-radius: 4px;
+      flex-shrink: 0; width: 38px; text-align: center;
+    }
+    .ulp-badge.pasca { background:#DBEAFE; color:#2563EB; }
+    .ulp-badge.praba { background:#EDE9FE; color:#7C3AED; }
+    .ulp-prog-track {
+      flex: 1; background: #E2E8F0; border-radius: 999px; height: 7px; overflow: hidden;
+    }
+    .ulp-prog-fill-p { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#3B82F6,#60A5FA); transition: width .5s ease; }
+    .ulp-prog-fill-r { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#8B5CF6,#A78BFA); transition: width .5s ease; }
+    .ulp-prog-pct { font-size: .7rem; font-weight: 700; color: var(--text); width: 34px; text-align: right; flex-shrink: 0; }
+    .ulp-prog-val { font-size: .65rem; color: var(--muted); width: 60px; text-align: right; flex-shrink: 0; }
+
     /* ── Summary Cards ──────────────────────────────── */
     .summary-grid {
       display: grid;
@@ -358,13 +430,15 @@
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
 const SHEET_ID = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
-// Uses JSONP via gviz/tq — works from file:// (no CORS issue)
-// range=A3:K500 skips the 2 header rows (section labels + col names)
-const GVZ_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:K500&gid=0`;
+// Col 0=ULP, 1=No, 2=Nama(pasca), 3=Email(pasca), 4=Open(pasca), 5=Submit(pasca), 6=Reject(pasca)
+//           7=Nama(praba), 8=Email(praba), 9=Open(praba), 10=Submit(praba), 11=Reject(praba)
+const GVZ_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:L500&gid=0`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let allData   = [];
-let filtered  = [];
+let allData    = [];
+let filtered   = [];
+let ulpList    = [];   // sorted unique ULPs
+let activeUlp  = 'all';
 let sortCol    = 'no';
 let sortDir    = 'asc';
 let chartPasca = null;
@@ -379,7 +453,6 @@ function loadData() {
   document.getElementById('lastUpdated').textContent = 'Memuat…';
   document.getElementById('errBox').innerHTML = '';
 
-  // Remove old script tag to allow re-fetch
   const old = document.getElementById('_gsheet_script');
   if (old) old.remove();
 
@@ -396,37 +469,36 @@ function loadData() {
   document.head.appendChild(script);
 }
 
-// ── JSONP Callback (called by Google's response) ──────────────────────────────
+// ── JSONP Callback ────────────────────────────────────────────────────────────
 function _gsheetCB(data) {
   const btn  = document.getElementById('btnRefresh');
   const icon = document.getElementById('refreshIcon');
 
   try {
     const rows = data.table.rows;
-    // Cols: 0=No, 1=Nama(pasca), 2=Email(pasca), 3=Open(pasca), 4=Submit(pasca), 5=Reject(pasca)
-    //       6=Nama(praba), 7=Email(praba), 8=Open(praba), 9=Submit(praba), 10=Reject(praba)
     allData = [];
     rows.forEach((row, i) => {
       const c  = row.c || [];
       const cv = idx => (c[idx] && c[idx].v !== null && c[idx].v !== undefined) ? c[idx].v : null;
-      const nama = cv(1) || cv(6);
+      const nama = cv(2) || cv(7);
       if (!nama) return;
       allData.push({
-        no:           typeof cv(0) === 'number' ? cv(0) : (i + 1),
-        nama_pasca:   cv(1) || '',
-        email_pasca:  cv(2) || '',
-        open_pasca:   cv(3),
-        submit_pasca: cv(4),
-        reject_pasca: cv(5),
-        nama_praba:   cv(6) || '',
-        email_praba:  cv(7) || '',
-        open_praba:   cv(8),
-        submit_praba: cv(9),
-        reject_praba: cv(10),
+        ulp:          cv(0) ? String(cv(0)).trim() : '',
+        no:           typeof cv(1) === 'number' ? cv(1) : (i + 1),
+        nama_pasca:   cv(2)  || '',
+        email_pasca:  cv(3)  || '',
+        open_pasca:   cv(4),
+        submit_pasca: cv(5),
+        reject_pasca: cv(6),
+        nama_praba:   cv(7)  || '',
+        email_praba:  cv(8)  || '',
+        open_praba:   cv(9),
+        submit_praba: cv(10),
+        reject_praba: cv(11),
       });
     });
 
-    filtered = [...allData];
+    activeUlp = 'all';
     render();
 
     const now = new Date();
@@ -444,6 +516,20 @@ function _gsheetCB(data) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const n = v => (typeof v === 'number' ? v : 0);
+
+function getUlps() {
+  const set = new Set(allData.map(d => d.ulp).filter(Boolean));
+  return [...set].sort();
+}
+
+function getDisplayData() {
+  return activeUlp === 'all' ? allData : allData.filter(d => d.ulp === activeUlp);
+}
+
+function filterByUlp(idx) {
+  activeUlp = idx === 0 ? 'all' : (ulpList[idx - 1] || 'all');
+  render();
+}
 
 function totals(arr, sfx) {
   return arr.reduce((a, d) => ({
@@ -490,14 +576,29 @@ function shortName(nama) {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
-  const tPasca = totals(allData, 'pasca');
-  const tPraba = totals(allData, 'praba');
+  ulpList = getUlps();
+  const display  = getDisplayData();
+  const tPasca   = totals(display, 'pasca');
+  const tPraba   = totals(display, 'praba');
+
+  // ULP filter buttons
+  const filterBtns = [
+    `<button class="ulp-btn${activeUlp === 'all' ? ' active' : ''}" onclick="filterByUlp(0)">Semua ULP</button>`,
+    ...ulpList.map((u, i) =>
+      `<button class="ulp-btn${activeUlp === u ? ' active' : ''}" onclick="filterByUlp(${i + 1})">${u}</button>`)
+  ].join('');
 
   document.getElementById('content').innerHTML = `
+    <!-- ULP Filter Bar -->
+    <div class="ulp-filter">${filterBtns}</div>
+
+    <!-- ULP Overview -->
+    ${ulpOverviewSection()}
+
     <!-- Summary Cards -->
     <div class="summary-grid">
-      ${summaryCard('pasca', 'PASCABAYAR', tPasca)}
-      ${summaryCard('praba', 'PRABAYAR',   tPraba)}
+      ${summaryCard('pasca', 'PASCABAYAR', tPasca, display.length)}
+      ${summaryCard('praba', 'PRABAYAR',   tPraba, display.length)}
     </div>
 
     <!-- Top Submitters -->
@@ -546,7 +647,7 @@ function render() {
               <th class="th-pasca hide-sm" onclick="sortBy('reject_pasca')">Reject</th>
               <th class="th-praba" onclick="sortBy('open_praba')">Open</th>
               <th class="th-praba" onclick="sortBy('submit_praba')">Submit</th>
-              <th class="th-praba hide-sm" onclick="sortBy('reject_proba')">Reject</th>
+              <th class="th-praba hide-sm" onclick="sortBy('reject_praba')">Reject</th>
             </tr>
           </thead>
           <tbody id="tblBody"></tbody>
@@ -559,14 +660,52 @@ function render() {
   renderChart();
 }
 
-function summaryCard(sfx, label, t) {
+function ulpOverviewSection() {
+  if (!ulpList.length) return '';
+
+  const cards = ulpList.map((u, idx) => {
+    const uData = allData.filter(d => d.ulp === u);
+    const tp  = totals(uData, 'pasca');
+    const tpr = totals(uData, 'praba');
+    const rp  = pct(tp.submit,  tp.open,  tp.reject);
+    const rr  = pct(tpr.submit, tpr.open, tpr.reject);
+    const isAct = activeUlp === u;
+    return `
+      <div class="ulp-row${isAct ? ' ulp-active' : ''}" onclick="filterByUlp(${idx + 1})">
+        <div class="ulp-row-top">
+          <span class="ulp-row-name">${u}</span>
+          <span class="ulp-row-count">${uData.length} petugas</span>
+        </div>
+        <div class="ulp-prog-row">
+          <span class="ulp-badge pasca">Pasca</span>
+          <div class="ulp-prog-track"><div class="ulp-prog-fill-p" style="width:${rp}%"></div></div>
+          <span class="ulp-prog-pct">${rp}%</span>
+          <span class="ulp-prog-val">${tp.submit.toLocaleString('id-ID')} sub</span>
+        </div>
+        <div class="ulp-prog-row">
+          <span class="ulp-badge praba">Praba</span>
+          <div class="ulp-prog-track"><div class="ulp-prog-fill-r" style="width:${rr}%"></div></div>
+          <span class="ulp-prog-pct">${rr}%</span>
+          <span class="ulp-prog-val">${tpr.submit.toLocaleString('id-ID')} sub</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="ulp-overview">
+      <div class="ulp-overview-header">📍 Progres per ULP</div>
+      <div class="ulp-grid">${cards}</div>
+    </div>`;
+}
+
+function summaryCard(sfx, label, t, count) {
   const rate = pct(t.submit, t.open, t.reject);
   const cls  = sfx === 'pasca' ? 'pasca' : 'praba';
   return `
     <div class="s-card ${cls}">
       <div class="s-card-header">
         <span class="s-badge ${cls}">${label}</span>
-        <span class="s-count">${allData.length} petugas</span>
+        <span class="s-count">${count} petugas${activeUlp !== 'all' ? ' · ' + activeUlp : ''}</span>
       </div>
       <div class="s-stats">
         <div class="s-stat open">
@@ -595,7 +734,7 @@ function summaryCard(sfx, label, t) {
 }
 
 function topCard(sfx, title) {
-  const top5 = [...allData]
+  const top5 = [...getDisplayData()]
     .filter(d => typeof d[`submit_${sfx}`] === 'number')
     .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]))
     .slice(0, 5);
@@ -615,8 +754,9 @@ function topCard(sfx, title) {
 }
 
 function renderTable() {
-  const q     = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  filtered    = allData.filter(d => {
+  const q    = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const base = getDisplayData();
+  filtered   = base.filter(d => {
     const nama  = (d.nama_pasca || d.nama_praba).toLowerCase();
     const email = (d.email_pasca || d.email_praba).toLowerCase();
     return !q || nama.includes(q) || email.includes(q);
@@ -632,7 +772,7 @@ function renderTable() {
   });
 
   const count = document.getElementById('tblCount');
-  if (count) count.textContent = `(${filtered.length} dari ${allData.length})`;
+  if (count) count.textContent = `(${filtered.length} dari ${base.length})`;
 
   const body = document.getElementById('tblBody');
   if (!body) return;
@@ -676,12 +816,10 @@ function renderOneChart(sfx) {
   const wrap = document.getElementById(isPasca ? 'chartWrapPasca' : 'chartWrapPraba');
   if (!ctx || !wrap) return;
 
-  // Destroy old instance
   if (isPasca) { if (chartPasca) { chartPasca.destroy(); chartPasca = null; } }
   else         { if (chartPraba) { chartPraba.destroy(); chartPraba = null; } }
 
-  // Sort by submit descending so largest bars are on the left
-  const sorted = [...allData]
+  const sorted = [...getDisplayData()]
     .filter(d => typeof d[`submit_${sfx}`] === 'number' || d[`submit_${sfx}`] === 0)
     .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]));
 
@@ -693,7 +831,6 @@ function renderOneChart(sfx) {
   const rgb    = isPasca ? '59,130,246' : '139,92,246';
   const title  = isPasca ? 'Pascabayar' : 'Prabayar';
 
-  // Set canvas size BEFORE Chart.js init
   ctx.width  = chartW;
   ctx.height = 320;
 
