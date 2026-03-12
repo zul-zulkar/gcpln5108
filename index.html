@@ -394,6 +394,80 @@
       text-align: center; font-size: .72rem;
       color: var(--muted); padding: 1rem .5rem 2rem;
     }
+
+    /* ── Date Filter Bar ──────────────────────────────── */
+    .filter-row {
+      display: flex; align-items: center; flex-wrap: wrap; gap: .5rem;
+      margin-bottom: .65rem;
+    }
+    .date-filter-bar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: .3rem;
+    }
+    .dfq-btn {
+      padding: .26rem .6rem;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      background: #F8FAFC; color: var(--muted);
+      font-size: .73rem; font-weight: 700; cursor: pointer;
+      transition: all .13s;
+    }
+    .dfq-btn:hover  { border-color: var(--primary-light); color: var(--primary-light); }
+    .dfq-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .dfq-sep { color: var(--border); font-size: .82rem; }
+    input.dfq-input[type="date"] {
+      border: 1.5px solid var(--border); border-radius: 6px;
+      padding: .26rem .48rem; font-size: .73rem;
+      color: var(--text); background: #F8FAFC; outline: none; cursor: pointer;
+    }
+    input.dfq-input[type="date"]:focus { border-color: var(--primary-light); }
+
+    /* ── Multi-select Pencacah ────────────────────────── */
+    .ms-wrap { position: relative; }
+    .ms-trigger {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .3rem .7rem;
+      border: 1.5px solid var(--border); border-radius: 7px;
+      background: #F8FAFC; font-size: .78rem; font-weight: 600; color: var(--text);
+      cursor: pointer; transition: border-color .13s; white-space: nowrap; max-width: 220px;
+    }
+    .ms-trigger:hover { border-color: var(--primary-light); }
+    .ms-caret { font-size: .6rem; color: var(--muted); }
+    .ms-panel {
+      position: absolute; top: calc(100% + 4px); right: 0; z-index: 200;
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.13);
+      width: 230px; max-width: calc(100vw - 1.5rem); overflow: hidden;
+    }
+    @media (max-width: 480px) {
+      .ms-panel { right: auto; left: 0; }
+    }
+    .ms-search-row {
+      padding: .5rem .6rem .35rem; border-bottom: 1px solid var(--border);
+    }
+    .ms-search-row input {
+      width: 100%; border: 1px solid var(--border); border-radius: 6px;
+      padding: .3rem .55rem; font-size: .78rem; outline: none; color: var(--text);
+    }
+    .ms-search-row input:focus { border-color: var(--primary-light); }
+    .ms-actions {
+      display: flex; gap: .5rem; padding: .28rem .65rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .ms-act-btn {
+      font-size: .7rem; font-weight: 700; color: var(--primary-light);
+      background: none; border: none; cursor: pointer; padding: .05rem .1rem;
+    }
+    .ms-act-btn:hover { text-decoration: underline; }
+    .ms-list { max-height: 200px; overflow-y: auto; padding: .25rem 0; }
+    .ms-item {
+      display: flex; align-items: center; gap: .45rem;
+      padding: .32rem .7rem; cursor: pointer; font-size: .8rem; color: var(--text);
+      user-select: none;
+    }
+    .ms-item:hover { background: #F1F5F9; }
+    .ms-item input[type="checkbox"] {
+      accent-color: var(--primary); width: 14px; height: 14px;
+      flex-shrink: 0; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -422,6 +496,8 @@
       <p>Memuat data dari Google Sheets…</p>
     </div>
   </div>
+  <div id="harianSection"></div>
+  <div id="riwayatSection"></div>
 </main>
 
 <footer>Dashboard Monitoring FASIH BPS Kabupaten Buleleng</footer>
@@ -429,10 +505,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const SHEET_ID = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+const SHEET_ID   = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+const GID_HARIAN   = '187552406';  // ← gid tab "Harian"
+const GID_RIWAYAT  = '1075204205';           // ← isi gid tab "Riwayat" setelah dibuat
 // Col 0=ULP, 1=No, 2=Nama(pasca), 3=Email(pasca), 4=Open(pasca), 5=Submit(pasca), 6=Reject(pasca)
 //           7=Nama(praba), 8=Email(praba), 9=Open(praba), 10=Submit(praba), 11=Reject(praba)
-const GVZ_BASE = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:L500&gid=0`;
+const GVZ_BASE   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:L500&gid=0`;
+// Harian tab: Tanggal | Waktu | Open_P | Submit_P | Reject_P | Open_R | Submit_R | Reject_R
+const GVZ_HARIAN   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetHarianCB&headers=1&gid=${GID_HARIAN}&t=${Date.now()}`;
+const GVZ_RIWAYAT  = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRiwayatCB&headers=1&gid=${GID_RIWAYAT}&t=${Date.now()}`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let allData    = [];
@@ -443,6 +524,22 @@ let sortCol    = 'no';
 let sortDir    = 'asc';
 let chartPasca = null;
 let chartPraba = null;
+let harianData      = [];
+let chartHarian     = null;
+let riwayatData     = [];   // semua baris dari tab Riwayat
+let chartRiwayat    = null;
+let riwayatSelectedEmails = new Set(['__all__']); // multi-select state
+let riwayatMsQuery    = '';
+let riwayatMetric     = 'submit_pasca';
+let harianFilter      = { from: '', to: '' };
+let riwayatFilter     = { from: '', to: '' };
+let harianActiveQuick  = 0;
+let riwayatActiveQuick = 0;
+let harianTblSortCol   = 'tanggal';
+let harianTblSortDir   = 'desc';
+let riwayatTblSortCol  = 'tanggal';
+let riwayatTblSortDir  = 'desc';
+let _msOutsideListenerAttached = false;
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
 function loadData() {
@@ -500,10 +597,7 @@ function _gsheetCB(data) {
 
     activeUlp = 'all';
     render();
-
-    const now = new Date();
-    const ts = now.toLocaleString('id-ID', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    document.getElementById('lastUpdated').textContent = `Update: ${ts}`;
+    _refreshTimestamp();
   } catch (e) {
     document.getElementById('errBox').innerHTML =
       `<div class="err-box">❌ Gagal memproses data: <strong>${e.message}</strong></div>`;
@@ -516,6 +610,20 @@ function _gsheetCB(data) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const n = v => (typeof v === 'number' ? v : 0);
+
+function _refreshTimestamp() {
+  const el = document.getElementById('lastUpdated');
+  if (!el) return;
+  if (harianData.length) {
+    const last = harianData[harianData.length - 1];
+    const ts = last.waktu ? `${last.tanggal} ${last.waktu}` : last.tanggal;
+    el.textContent = `Scraping terakhir: ${ts}`;
+  } else {
+    const now = new Date();
+    const ts = now.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    el.textContent = `Dimuat: ${ts}`;
+  }
+}
 
 function getUlps() {
   const set = new Set(allData.map(d => d.ulp).filter(Boolean));
@@ -572,6 +680,23 @@ function toProper(nama) {
 
 function shortName(nama) {
   return toProper(nama).split(' ').slice(0, 2).join(' ');
+}
+
+function parseDMY(s) {
+  // "DD/MM/YYYY" → "YYYY-MM-DD" for comparison
+  if (!s || typeof s !== 'string') return '';
+  const p = s.split('/');
+  return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s;
+}
+
+function applyDateFilter(data, filter) {
+  if (!filter.from && !filter.to) return data;
+  return data.filter(d => {
+    const ds = parseDMY(d.tanggal);
+    if (filter.from && ds < filter.from) return false;
+    if (filter.to   && ds > filter.to)   return false;
+    return true;
+  });
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -876,6 +1001,584 @@ function renderOneChart(sfx) {
   else         chartPraba = inst;
 }
 
+// ── Laporan Harian ────────────────────────────────────────────────────────────
+function loadHarian() {
+  if (!GID_HARIAN) {
+    document.getElementById('harianSection').innerHTML =
+      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Tren Harian: isi <code>GID_HARIAN</code> di kode dashboard setelah tab "Harian" dibuat.</p>';
+    return;
+  }
+  const old = document.getElementById('_gsheet_harian_script');
+  if (old) old.remove();
+  const s = document.createElement('script');
+  s.id  = '_gsheet_harian_script';
+  s.src = GVZ_HARIAN();
+  document.head.appendChild(s);
+}
+
+function _parseGvizDate(cell) {
+  if (!cell) return '';
+  // Prefer formatted value (.f) — e.g. "12/03/2026" as stored in sheet
+  if (cell.f) return cell.f;
+  const v = cell.v;
+  if (v === null || v === undefined) return '';
+  // GViz returns date cells as "Date(year,month0,day)"
+  if (typeof v === 'string') {
+    const m = v.match(/^Date\((\d+),(\d+),(\d+)\)/);
+    if (m) return `${String(+m[3]).padStart(2,'0')}/${String(+m[2]+1).padStart(2,'0')}/${m[1]}`;
+  }
+  return String(v);
+}
+
+function _parseGvizTime(cell) {
+  if (!cell) return '';
+  if (cell.f) return cell.f.slice(0, 5);   // "HH:MM:SS" → "HH:MM"
+  const v = cell.v;
+  if (v === null || v === undefined) return '';
+  // GViz returns time as fraction of day
+  if (typeof v === 'number') {
+    const totalMin = Math.round(v * 1440);
+    const h = Math.floor(totalMin / 60), m2 = totalMin % 60;
+    return `${String(h).padStart(2,'0')}:${String(m2).padStart(2,'0')}`;
+  }
+  return String(v).slice(0, 5);
+}
+
+function _gsheetHarianCB(data) {
+  try {
+    harianData = [];
+    (data.table.rows || []).forEach(row => {
+      const c  = row.c || [];
+      const cv = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
+      if (!cv(0)) return;
+      harianData.push({
+        tanggal:      _parseGvizDate(c[0]),
+        waktu:        _parseGvizTime(c[1]),
+        open_pasca:   cv(2),
+        submit_pasca: cv(3),
+        reject_pasca: cv(4),
+        open_praba:   cv(5),
+        submit_praba: cv(6),
+        reject_praba: cv(7),
+      });
+    });
+    _refreshTimestamp();
+    renderHarian();
+  } catch(e) { console.error('Harian CB:', e); }
+}
+
+// ── Table sort helpers ─────────────────────────────────────────────────────────
+function _sortArr(arr, col, dir) {
+  return [...arr].sort((a, b) => {
+    let cmp;
+    if (col === 'tanggal') {
+      cmp = parseDMY(a.tanggal).localeCompare(parseDMY(b.tanggal));
+    } else if (col === 'nama') {
+      cmp = (a.nama || a.email || '').toLowerCase().localeCompare((b.nama || b.email || '').toLowerCase());
+    } else {
+      cmp = n(a[col]) - n(b[col]);
+    }
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
+function sortHarianTbl(col) {
+  harianTblSortDir = harianTblSortCol === col && harianTblSortDir === 'desc' ? 'asc' : 'desc';
+  harianTblSortCol = col;
+  renderHarian();
+}
+
+function sortRiwayatTbl(col) {
+  riwayatTblSortDir = riwayatTblSortCol === col && riwayatTblSortDir === 'desc' ? 'asc' : 'desc';
+  riwayatTblSortCol = col;
+  refreshRiwayatViz();
+}
+
+function _syncRiwayatTblHeaders() {
+  document.querySelectorAll('[data-rv-sort]').forEach(span => {
+    const col = span.dataset.rvSort;
+    span.textContent = riwayatTblSortCol === col
+      ? (riwayatTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  });
+}
+
+function renderHarian() {
+  const sec = document.getElementById('harianSection');
+  if (!harianData.length) {
+    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>📅 Tren Harian</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data harian.</p></div>';
+    return;
+  }
+
+  // Apply date filter
+  const filt        = applyDateFilter(harianData, harianFilter);
+  // Chart: newest first (left)
+  const display     = [...filt].reverse();
+  const labels      = display.map(d => d.tanggal);
+  const submitPasca = display.map(d => n(d.submit_pasca));
+  const submitPraba = display.map(d => n(d.submit_praba));
+  const openPasca   = display.map(d => n(d.open_pasca));
+  const openPraba   = display.map(d => n(d.open_praba));
+
+  // Table: sortable
+  const arrH    = col => harianTblSortCol === col ? (harianTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  const tblRows = _sortArr(filt, harianTblSortCol, harianTblSortDir).map(d => `
+    <tr>
+      <td>${d.tanggal}</td>
+      <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
+      <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
+      <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
+      <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
+      <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
+      <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
+    </tr>`).join('');
+
+  const minWH = Math.max(480, display.length * 90);
+  const mkQ   = (d, lbl) =>
+    `<button class="dfq-btn${harianActiveQuick === d ? ' active' : ''}" onclick="setHarianQuickFilter(${d})">${lbl}</button>`;
+
+  sec.innerHTML = `
+    <div class="chart-wrap" style="margin-top:1.25rem">
+      <h3>📅 Tren Harian</h3>
+      <div class="filter-row">
+        <div class="date-filter-bar">
+          ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
+          <span class="dfq-sep">|</span>
+          <input type="date" class="dfq-input" id="harianFrom" value="${harianFilter.from}"
+            onchange="setHarianDateRange(this.value,document.getElementById('harianTo').value)">
+          <span class="dfq-sep">–</span>
+          <input type="date" class="dfq-input" id="harianTo" value="${harianFilter.to}"
+            onchange="setHarianDateRange(document.getElementById('harianFrom').value,this.value)">
+        </div>
+        <button class="dfq-btn" onclick="resetHarianFilter()" title="Reset filter tanggal" style="margin-left:.25rem">↺ Reset</button>
+      </div>
+      <div class="chart-scroll">
+        <div class="chart-inner" style="min-width:${minWH}px;width:100%;height:300px">
+          <canvas id="chartHarian"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="tbl-card" style="margin-bottom:1.25rem">
+      <div class="tbl-header"><h2>Riwayat Harian</h2></div>
+      <div class="tbl-scroll" style="max-height:280px">
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2" onclick="sortHarianTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal${arrH('tanggal')}</th>
+              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="3" class="th-praba th-span">Prabayar</th>
+            </tr>
+            <tr>
+              <th class="th-pasca" onclick="sortHarianTbl('open_pasca')" style="cursor:pointer">Open${arrH('open_pasca')}</th>
+              <th class="th-pasca" onclick="sortHarianTbl('submit_pasca')" style="cursor:pointer">Submit${arrH('submit_pasca')}</th>
+              <th class="th-pasca" onclick="sortHarianTbl('reject_pasca')" style="cursor:pointer">Reject${arrH('reject_pasca')}</th>
+              <th class="th-praba" onclick="sortHarianTbl('open_praba')" style="cursor:pointer">Open${arrH('open_praba')}</th>
+              <th class="th-praba" onclick="sortHarianTbl('submit_praba')" style="cursor:pointer">Submit${arrH('submit_praba')}</th>
+              <th class="th-praba" onclick="sortHarianTbl('reject_praba')" style="cursor:pointer">Reject${arrH('reject_praba')}</th>
+            </tr>
+          </thead>
+          <tbody>${tblRows || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  if (chartHarian) { chartHarian.destroy(); chartHarian = null; }
+  chartHarian = new Chart(document.getElementById('chartHarian'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Submit Pascabayar', data: submitPasca, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.1)',  tension: .3, pointRadius: 4, fill: true },
+        { label: 'Submit Prabayar',   data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true },
+        { label: 'Open Pascabayar',   data: openPasca,   borderColor: '#93C5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false },
+        { label: 'Open Prabayar',     data: openPraba,   borderColor: '#C4B5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}` } },
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ── Progres Harian per Pencacah ───────────────────────────────────────────────
+function loadRiwayat() {
+  if (!GID_RIWAYAT) {
+    document.getElementById('riwayatSection').innerHTML =
+      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Progres per Pencacah: isi <code>GID_RIWAYAT</code> setelah tab "Riwayat" dibuat.</p>';
+    return;
+  }
+  const old = document.getElementById('_gsheet_riwayat_script');
+  if (old) old.remove();
+  const s = document.createElement('script');
+  s.id  = '_gsheet_riwayat_script';
+  s.src = GVZ_RIWAYAT();
+  document.head.appendChild(s);
+}
+
+function _gsheetRiwayatCB(data) {
+  // Cols: 0=Tanggal, 1=Email, 2=Nama, 3=Open_Pasca, 4=Submit_Pasca, 5=Reject_Pasca,
+  //       6=Open_Praba, 7=Submit_Praba, 8=Reject_Praba
+  try {
+    riwayatData = [];
+    (data.table.rows || []).forEach(row => {
+      const c  = row.c || [];
+      const cv = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
+      if (!cv(0) && !cv(1)) return;
+      riwayatData.push({
+        tanggal:      _parseGvizDate(c[0]),
+        email:        cv(1) ? String(cv(1)).trim() : '',
+        nama:         cv(2) ? String(cv(2)).trim() : '',
+        open_pasca:   cv(3),
+        submit_pasca: cv(4),
+        reject_pasca: cv(5),
+        open_praba:   cv(6),
+        submit_praba: cv(7),
+        reject_praba: cv(8),
+      });
+    });
+    renderRiwayat();
+  } catch(e) { console.error('Riwayat CB:', e); }
+}
+
+function renderRiwayat() {
+  const sec = document.getElementById('riwayatSection');
+  if (!riwayatData.length) {
+    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>👤 Progres Harian per Pencacah</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data riwayat per pencacah.</p></div>';
+    return;
+  }
+
+  const metricLabels = {
+    submit_pasca: 'Submit Pascabayar', submit_praba: 'Submit Prabayar',
+    open_pasca:   'Open Pascabayar',   open_praba:   'Open Prabayar',
+  };
+  const metricOptHtml = Object.entries(metricLabels).map(([v, l]) =>
+    `<option value="${v}"${v === riwayatMetric ? ' selected' : ''}>${l}</option>`
+  ).join('');
+
+  const mkQR = (d, lbl) =>
+    `<button class="dfq-btn${riwayatActiveQuick === d ? ' active' : ''}" onclick="setRiwayatQuickFilter(${d})">${lbl}</button>`;
+
+  sec.innerHTML = `
+    <div class="chart-wrap" style="margin-top:1.25rem">
+      <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+        👤 Progres Harian per Pencacah
+        <select onchange="riwayatMetric=this.value;refreshRiwayatViz()"
+          style="font-size:.82rem;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer">
+          ${metricOptHtml}
+        </select>
+      </h3>
+      <div class="filter-row" style="margin-top:.6rem">
+        <div class="date-filter-bar">
+          ${mkQR(0,'Semua')}${mkQR(7,'7H')}${mkQR(14,'14H')}${mkQR(30,'30H')}
+          <span class="dfq-sep">|</span>
+          <input type="date" class="dfq-input" id="riwayatFrom" value="${riwayatFilter.from}"
+            onchange="setRiwayatDateRange(this.value,document.getElementById('riwayatTo').value)">
+          <span class="dfq-sep">–</span>
+          <input type="date" class="dfq-input" id="riwayatTo" value="${riwayatFilter.to}"
+            onchange="setRiwayatDateRange(document.getElementById('riwayatFrom').value,this.value)">
+        </div>
+        <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Reset semua filter" style="margin-left:.25rem">↺ Reset</button>
+        <div class="ms-wrap" id="msPencacahWrap">
+          <button class="ms-trigger" onclick="toggleMsPencacah(event)">
+            <span id="msRiwayatLabel">${getMsLabel()}</span>
+            <span class="ms-caret">▾</span>
+          </button>
+          <div class="ms-panel" id="msRiwayatPanel" style="display:none">
+            <div class="ms-search-row">
+              <input id="msRiwayatSearch" type="text" placeholder="Cari nama petugas…"
+                oninput="filterMsPencacah()" autocomplete="off">
+            </div>
+            <div class="ms-actions">
+              <button class="ms-act-btn" onclick="selectAllPencacah()">Pilih Semua</button>
+              <button class="ms-act-btn" onclick="clearPencacah()">Hapus Semua</button>
+            </div>
+            <div class="ms-list" id="msRiwayatList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-scroll" style="margin-top:.75rem">
+        <div class="chart-inner" id="riwayatChartInner" style="width:100%;height:380px">
+          <canvas id="chartRiwayat"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="tbl-card" style="margin-bottom:1.25rem">
+      <div class="tbl-header"><h2>Detail Pencacah</h2></div>
+      <div class="tbl-scroll" style="max-height:260px">
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2" onclick="sortRiwayatTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal<span data-rv-sort="tanggal"></span></th>
+              <th rowspan="2" onclick="sortRiwayatTbl('nama')" style="vertical-align:middle;cursor:pointer">Pencacah<span data-rv-sort="nama"></span></th>
+              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="3" class="th-praba th-span">Prabayar</th>
+            </tr>
+            <tr>
+              <th class="th-pasca" onclick="sortRiwayatTbl('open_pasca')" style="cursor:pointer">Open<span data-rv-sort="open_pasca"></span></th>
+              <th class="th-pasca" onclick="sortRiwayatTbl('submit_pasca')" style="cursor:pointer">Submit<span data-rv-sort="submit_pasca"></span></th>
+              <th class="th-pasca" onclick="sortRiwayatTbl('reject_pasca')" style="cursor:pointer">Reject<span data-rv-sort="reject_pasca"></span></th>
+              <th class="th-praba" onclick="sortRiwayatTbl('open_praba')" style="cursor:pointer">Open<span data-rv-sort="open_praba"></span></th>
+              <th class="th-praba" onclick="sortRiwayatTbl('submit_praba')" style="cursor:pointer">Submit<span data-rv-sort="submit_praba"></span></th>
+              <th class="th-praba" onclick="sortRiwayatTbl('reject_praba')" style="cursor:pointer">Reject<span data-rv-sort="reject_praba"></span></th>
+            </tr>
+          </thead>
+          <tbody id="riwayatTblBody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  attachMsOutsideListener();
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetHarianFilter() {
+  harianFilter      = { from: '', to: '' };
+  harianActiveQuick = 0;
+  renderHarian();
+}
+
+function resetRiwayatFilter() {
+  riwayatFilter         = { from: '', to: '' };
+  riwayatActiveQuick    = 0;
+  riwayatSelectedEmails = new Set(['__all__']);
+  riwayatMsQuery        = '';
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+// ── Date filter helpers ────────────────────────────────────────────────────────
+function _localISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function _quickDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days + 1);
+  return _localISO(d);
+}
+
+function setHarianQuickFilter(days) {
+  harianActiveQuick = days;
+  harianFilter = days === 0
+    ? { from: '', to: '' }
+    : { from: _quickDate(days), to: _localISO(new Date()) };
+  renderHarian();
+}
+
+function setHarianDateRange(from, to) {
+  harianActiveQuick = -1;
+  harianFilter = { from, to };
+  renderHarian();
+}
+
+function setRiwayatQuickFilter(days) {
+  riwayatActiveQuick = days;
+  riwayatFilter = days === 0
+    ? { from: '', to: '' }
+    : { from: _quickDate(days), to: _localISO(new Date()) };
+  refreshRiwayatViz();
+  // Sync date inputs
+  const fromEl = document.getElementById('riwayatFrom');
+  const toEl   = document.getElementById('riwayatTo');
+  if (fromEl) fromEl.value = riwayatFilter.from;
+  if (toEl)   toEl.value   = riwayatFilter.to;
+  // Update quick button active state
+  document.querySelectorAll('[onclick^="setRiwayatQuickFilter"]').forEach(btn => {
+    const d = parseInt(btn.getAttribute('onclick').match(/\d+/)?.[0] ?? '-1');
+    btn.classList.toggle('active', d === riwayatActiveQuick);
+  });
+}
+
+function setRiwayatDateRange(from, to) {
+  riwayatActiveQuick = -1;
+  riwayatFilter = { from, to };
+  refreshRiwayatViz();
+}
+
+// ── Multi-select helpers ───────────────────────────────────────────────────────
+function getMsLabel() {
+  if (riwayatSelectedEmails.has('__all__')) return 'Semua Petugas';
+  const cnt = riwayatSelectedEmails.size;
+  if (cnt === 0) return '— Pilih Petugas —';
+  const total = new Set(riwayatData.map(d => d.email).filter(Boolean)).size;
+  return cnt >= total ? 'Semua Petugas' : `${cnt} Petugas dipilih`;
+}
+
+function updateMsLabel() {
+  const lbl = document.getElementById('msRiwayatLabel');
+  if (lbl) lbl.textContent = getMsLabel();
+}
+
+function toggleMsPencacah(e) {
+  if (e) e.stopPropagation();
+  const panel = document.getElementById('msRiwayatPanel');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    const inp = document.getElementById('msRiwayatSearch');
+    if (inp) { inp.value = riwayatMsQuery; inp.focus(); }
+    buildMsOptions();
+  }
+}
+
+function closeMsPencacah() {
+  const panel = document.getElementById('msRiwayatPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+function attachMsOutsideListener() {
+  if (_msOutsideListenerAttached) return;
+  _msOutsideListenerAttached = true;
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('msPencacahWrap');
+    if (wrap && !wrap.contains(e.target)) closeMsPencacah();
+  });
+}
+
+function filterMsPencacah() {
+  riwayatMsQuery = document.getElementById('msRiwayatSearch')?.value || '';
+  buildMsOptions();
+}
+
+function buildMsOptions() {
+  const list = document.getElementById('msRiwayatList');
+  if (!list) return;
+  const q         = riwayatMsQuery.toLowerCase();
+  const allEmails = [...new Set(riwayatData.map(d => d.email).filter(Boolean))].sort();
+  const vis = q
+    ? allEmails.filter(e => {
+        const nama = (riwayatData.find(d => d.email === e)?.nama || '').toLowerCase();
+        return nama.includes(q) || e.toLowerCase().includes(q);
+      })
+    : allEmails;
+  const isAll = riwayatSelectedEmails.has('__all__');
+  list.innerHTML = vis.map(e => {
+    const nama = toProper(riwayatData.find(d => d.email === e)?.nama || e);
+    const chk  = (isAll || riwayatSelectedEmails.has(e)) ? ' checked' : '';
+    const esc  = e.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `<label class="ms-item"><input type="checkbox"${chk} onchange="togglePencacah('${esc}')"> <span>${nama}</span></label>`;
+  }).join('');
+  updateMsLabel();
+}
+
+function togglePencacah(email) {
+  const allEmails = [...new Set(riwayatData.map(d => d.email).filter(Boolean))];
+  const isAll = riwayatSelectedEmails.has('__all__');
+  if (isAll) {
+    riwayatSelectedEmails = new Set(allEmails);
+    riwayatSelectedEmails.delete(email);
+    if (riwayatSelectedEmails.size === 0) riwayatSelectedEmails = new Set(['__all__']);
+  } else if (riwayatSelectedEmails.has(email)) {
+    riwayatSelectedEmails.delete(email);
+    if (riwayatSelectedEmails.size === 0) riwayatSelectedEmails = new Set(['__all__']);
+  } else {
+    riwayatSelectedEmails.add(email);
+    if (riwayatSelectedEmails.size >= allEmails.length) riwayatSelectedEmails = new Set(['__all__']);
+  }
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+function selectAllPencacah() {
+  riwayatSelectedEmails = new Set(['__all__']);
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+function clearPencacah() {
+  riwayatSelectedEmails = new Set();
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+// ── Refresh riwayat chart + table (no full DOM rebuild) ───────────────────────
+function refreshRiwayatViz() {
+  const filteredData = applyDateFilter(riwayatData, riwayatFilter);
+  const allEmails    = [...new Set(filteredData.map(d => d.email).filter(Boolean))].sort();
+  // Latest dates on the LEFT
+  const allDates     = [...new Set(filteredData.map(d => d.tanggal))].sort((a, b) => parseDMY(a).localeCompare(parseDMY(b))).reverse();
+
+  const isAll = riwayatSelectedEmails.has('__all__') || riwayatSelectedEmails.size === 0;
+  const activeEmails = isAll ? allEmails : allEmails.filter(e => riwayatSelectedEmails.has(e));
+
+  const datasets = activeEmails.map((email, i) => {
+    const nama   = filteredData.find(d => d.email === email)?.nama || email;
+    const byDate = {};
+    filteredData.filter(d => d.email === email).forEach(d => { byDate[d.tanggal] = d[riwayatMetric]; });
+    const data = allDates.map(dt => n(byDate[dt]));
+    const hue = Math.round(i * 360 / Math.max(1, activeEmails.length));
+    return {
+      label:           toProper(nama),
+      data,
+      borderColor:     `hsl(${hue},65%,45%)`,
+      backgroundColor: 'transparent',
+      borderWidth:     activeEmails.length === 1 ? 2.5 : 1.5,
+      pointRadius:     activeEmails.length === 1 ? 4 : 2,
+      tension:         .3,
+      fill:            false,
+    };
+  });
+
+  const chartW = Math.max(520, allDates.length * 110);
+  const inner  = document.getElementById('riwayatChartInner');
+  if (inner) inner.style.minWidth = chartW + 'px';
+
+  if (chartRiwayat) { chartRiwayat.destroy(); chartRiwayat = null; }
+  const ctx = document.getElementById('chartRiwayat');
+  if (ctx) {
+    chartRiwayat = new Chart(ctx, {
+      type: 'line',
+      data: { labels: allDates, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}` } },
+        },
+        scales: {
+          x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+  }
+
+  // Update table
+  const tblSrc = _sortArr(
+    isAll ? filteredData : filteredData.filter(d => riwayatSelectedEmails.has(d.email)),
+    riwayatTblSortCol, riwayatTblSortDir);
+
+  const tbody = document.getElementById('riwayatTblBody');
+  if (tbody) {
+    tbody.innerHTML = tblSrc.length
+      ? tblSrc.map(d => `
+      <tr>
+        <td>${d.tanggal}</td>
+        <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis">${toProper(d.nama || d.email)}</td>
+        <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
+        <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
+        <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
+        <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
+        <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
+        <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
+      </tr>`).join('')
+      : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>';
+  }
+  updateMsLabel();
+  _syncRiwayatTblHeaders();
+}
+
 // ── Interactions ──────────────────────────────────────────────────────────────
 function doSearch() { renderTable(); }
 
@@ -886,8 +1589,12 @@ function sortBy(col) {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-setInterval(loadData, 5 * 60 * 1000);   // auto-refresh every 5 min
+setInterval(loadData,    5 * 60 * 1000);
+setInterval(loadHarian,  5 * 60 * 1000);
+setInterval(loadRiwayat, 5 * 60 * 1000);
 loadData();
+loadHarian();
+loadRiwayat();
 </script>
 </body>
 </html>
