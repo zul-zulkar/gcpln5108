@@ -640,6 +640,7 @@ function runScraper() {
     setStatus('Berjalan…', 'running');
     document.getElementById('btnRun').disabled = true;
     document.getElementById('btnStop').disabled = false;
+    _schedulePoll(2000);
   })
   .catch(e => { appendLog('[ERROR] ' + e + '\n'); });
 }
@@ -652,6 +653,7 @@ function stopScraper() {
   }).then(() => {
     setStatus('Menghentikan…', 'running');
     document.getElementById('btnStop').disabled = true;
+    _schedulePoll(2000);
   });
 }
 
@@ -678,7 +680,10 @@ function toggleAuto() {
       input_file: uploadedPath, username, password,
       sheets_url: sheetsUrl, upi_text: upiText, up3_text: up3Text
     })
-  }).then(r => r.json()).then(syncAutoUI);
+  }).then(r => r.json()).then(data => {
+    syncAutoUI(data);
+    if (data.auto_enabled) _schedulePoll(10000);
+  });
 }
 
 function syncAutoUI(data) {
@@ -723,9 +728,23 @@ function loadDownloads() {
   }).catch(() => {});
 }
 
+let _pollTimer = null;
+function _schedulePoll(ms) {
+  clearTimeout(_pollTimer);
+  _pollTimer = setTimeout(pollStatus, ms);
+}
 function pollStatus() {
   if (!sessionId) return;
-  fetch(`/status?sid=${sessionId}`).then(r => r.json()).then(syncAutoUI).catch(() => {});
+  fetch(`/status?sid=${sessionId}`)
+    .then(r => r.json())
+    .then(data => {
+      syncAutoUI(data);
+      // fast poll while running, normal poll while auto is on, stop otherwise
+      if (data.running)           _schedulePoll(2000);
+      else if (data.auto_enabled) _schedulePoll(10000);
+      // else: idle — no next poll until user action
+    })
+    .catch(() => { _schedulePoll(15000); }); // retry on error
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -744,7 +763,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   loadDownloads();
   pollStatus();
-  setInterval(pollStatus, 10000);
 });
 </script>
 </body>

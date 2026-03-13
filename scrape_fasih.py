@@ -2,6 +2,7 @@ import asyncio
 import openpyxl
 from playwright.async_api import async_playwright
 from openpyxl.styles import Font, PatternFill, Alignment
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import os
 import requests
@@ -519,8 +520,11 @@ async def main():
 
         await browser.close()
 
-    append_daily_snapshot(all_results, SHEETS_WEBHOOK_URL)
-    append_detail_snapshot(all_results, SHEETS_WEBHOOK_URL)
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        list(ex.map(lambda fn: fn(), [
+            lambda: append_daily_snapshot(all_results, SHEETS_WEBHOOK_URL),
+            lambda: append_detail_snapshot(all_results, SHEETS_WEBHOOK_URL),
+        ]))
 
 
 async def main_with_stop(stop_event, input_file=None, username=None, password=None,
@@ -568,8 +572,11 @@ async def main_with_stop(stop_event, input_file=None, username=None, password=No
         print("[INFO] Browser ditutup.")
 
     if not (stop_event and stop_event.is_set()):
-        append_daily_snapshot(all_results, _sheets)
-        append_detail_snapshot(all_results, _sheets)
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            list(ex.map(lambda fn: fn(), [
+                lambda: append_daily_snapshot(all_results, _sheets),
+                lambda: append_detail_snapshot(all_results, _sheets),
+            ]))
 
 
 if __name__ == "__main__":
