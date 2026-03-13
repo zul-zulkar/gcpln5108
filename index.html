@@ -88,6 +88,27 @@
       padding: 1.25rem 1rem 2rem;
     }
 
+    /* ── Scroll-to-top ───────────────────────────────── */
+    #scrollTop {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      background: var(--primary-light);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,.25);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 200;
+    }
+    #scrollTop.visible { opacity: 1; pointer-events: auto; }
+    #scrollTop:hover   { transform: translateY(-3px); }
+
     /* ── ULP Filter Bar ──────────────────────────────── */
     .ulp-filter {
       display: flex; flex-wrap: wrap; gap: .4rem;
@@ -566,7 +587,7 @@
     <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
       ⚙️ Sumber Data
     </button>
-    <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
+    <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
       <span id="refreshIcon">🔄</span> Refresh
     </button>
   </div>
@@ -576,25 +597,9 @@
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; max-width:900px;">
     <div style="flex:1; min-width:260px;">
       <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
-        URL tab <strong style="color:#fff">Utama</strong> (buka tab tsb di Sheets, copy URL-nya)
+        URL Google Sheets <span style="font-weight:400; opacity:.8;">(tempel URL spreadsheet — tab mana saja)</span>
       </label>
-      <input id="cfgUrlUtama" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
-        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
-               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
-    </div>
-    <div style="flex:1; min-width:260px;">
-      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
-        URL tab <strong style="color:#fff">Ringkasan</strong>
-      </label>
-      <input id="cfgUrlRingkasan" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
-        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
-               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
-    </div>
-    <div style="flex:1; min-width:260px;">
-      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
-        URL tab <strong style="color:#fff">Riwayat</strong>
-      </label>
-      <input id="cfgUrlRiwayat" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
+      <input id="cfgUrlSheet" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit"
         style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
                background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
     </div>
@@ -624,45 +629,33 @@
 
 <footer>Dashboard Monitoring FASIH BPS Kabupaten Buleleng</footer>
 
+<button id="scrollTop" title="Ke atas" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#8679;</button>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const _DEFAULTS = { SHEET_ID: '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs', GID_UTAMA: '0', GID_RINGKASAN: '187552406', GID_RIWAYAT: '1075204205' };
-let SHEET_ID  = _DEFAULTS.SHEET_ID;
-let GID_UTAMA = _DEFAULTS.GID_UTAMA;
-let GID_RINGKASAN  = _DEFAULTS.GID_RINGKASAN;
-let GID_RIWAYAT = _DEFAULTS.GID_RIWAYAT;
+const _DEFAULT_SHEET_ID = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+let SHEET_ID = _DEFAULT_SHEET_ID;
 
 function _parseSheetId(url) {
   const m = url.match(/\/spreadsheets\/d\/([\w-]+)/);
   return m ? m[1] : null;
 }
-function _parseGid(url) {
-  const m = url.match(/[?&#]gid=(\d+)/);
-  return m ? m[1] : '0';
-}
-function _getSavedConfig() {
-  return {
-    sid: localStorage.getItem('cfg_sheet_id')    || '',
-    gu:  localStorage.getItem('cfg_gid_utama')   || '',
-    gh:  localStorage.getItem('cfg_gid_ringkasan') || '',
-    gr:  localStorage.getItem('cfg_gid_riwayat') || '',
-  };
-}
 function _loadSheetConfig() {
-  const { sid, gu, gh, gr } = _getSavedConfig();
-  if (sid) SHEET_ID     = sid;
-  if (gu)  GID_UTAMA    = gu;
-  if (gh)  GID_RINGKASAN = gh;
-  if (gr)  GID_RIWAYAT  = gr;
+  const sid = localStorage.getItem('cfg_sheet_id') || '';
+  if (sid) SHEET_ID = sid;
+  // clean up legacy GID keys
+  ['cfg_gid_utama','cfg_gid_ringkasan','cfg_gid_riwayat'].forEach(k => localStorage.removeItem(k));
 }
-// Tab Utama = data Riwayat difilter tanggal hari ini (header-based column mapping)
-const GVZ_BASE   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=1&gid=${GID_RIWAYAT}&t=${Date.now()}`;
-// Ringkasan tab: Tanggal | Waktu | Open_P | Submit_P | Reject_P | Open_R | Submit_R | Reject_R
-const GVZ_RINGKASAN   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRingkasanCB&headers=1&gid=${GID_RINGKASAN}&t=${Date.now()}`;
-const GVZ_RIWAYAT  = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRiwayatCB&headers=1&gid=${GID_RIWAYAT}&t=${Date.now()}`;
+
+// All tabs loaded by sheet name — no GID configuration needed
+const GVZ_UTAMA     = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetUtamaCB&headers=1&sheet=Utama&t=${Date.now()}`;
+const GVZ_BASE      = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=1&sheet=Riwayat&t=${Date.now()}`;
+const GVZ_RINGKASAN = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRingkasanCB&headers=1&sheet=Ringkasan&t=${Date.now()}`;
+const GVZ_RIWAYAT   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRiwayatCB&headers=1&sheet=Riwayat&t=${Date.now()}`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
+let ulpMap     = {};   // email.toLowerCase() → ULP name (from Utama tab)
 let allData    = [];
 let filtered   = [];
 let ulpList    = [];   // sorted unique ULPs
@@ -697,9 +690,19 @@ function loadData() {
   document.getElementById('lastUpdated').textContent = 'Memuat…';
   document.getElementById('errBox').innerHTML = '';
 
+  // Step 1: selalu load Utama (by GID jika dikonfigurasi, by sheet name jika belum)
+  const old = document.getElementById('_gsheet_utama_script');
+  if (old) old.remove();
+  const s = document.createElement('script');
+  s.id  = '_gsheet_utama_script';
+  s.src = GVZ_UTAMA();
+  s.onerror = () => { ulpMap = {}; _loadMainStats(); };
+  document.head.appendChild(s);
+}
+
+function _loadMainStats() {
   const old = document.getElementById('_gsheet_script');
   if (old) old.remove();
-
   const script = document.createElement('script');
   script.id  = '_gsheet_script';
   script.src = GVZ_BASE();
@@ -707,10 +710,62 @@ function loadData() {
     document.getElementById('errBox').innerHTML =
       `<div class="err-box">❌ Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
     document.getElementById('lastUpdated').textContent = 'Gagal';
+    const btn = document.getElementById('btnRefresh');
     btn.classList.remove('loading');
-    icon.textContent = '🔄';
+    document.getElementById('refreshIcon').textContent = '🔄';
   };
   document.head.appendChild(script);
+}
+
+// ── Utama Callback: build email → ULP map ────────────────────────────────────
+function _gsheetUtamaCB(data) {
+  try {
+    ulpMap = {};
+    const cols    = data.table.cols || [];
+    const allRows = data.table.rows || [];
+
+    // Build colIdx from GViz headers (row 1 of the sheet)
+    const colIdx = {};
+    cols.forEach((c, i) => { if (c.label) colIdx[c.label.trim().toLowerCase().replace(/_/g, ' ')] = i; });
+    const ci = name => colIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
+
+    const EM_KEYS  = ['email','username','user'];
+    const ULP_KEYS = ['ulp','nama ulp','kantor cabang','cabang','unit'];
+    let iEm  = EM_KEYS.reduce((f, k) => f >= 0 ? f : ci(k), -1);
+    let iUlp = ULP_KEYS.reduce((f, k) => f >= 0 ? f : ci(k), -1);
+
+    // Handle 2-row header sheets (e.g. row1: "ULP | PASCABAYAR | PRABAYAR",
+    // row2: "No | Nama | Email | ..."). GViz only reads row1 as col labels;
+    // row2 becomes the first data row but its cell values are actually column names.
+    let dataStart = 0;
+    if ((iEm < 0 || iUlp < 0) && allRows.length > 0) {
+      const firstCells = allRows[0].c || [];
+      const rowIdx = {};
+      firstCells.forEach((cell, i) => {
+        if (cell && cell.v != null) {
+          const key = String(cell.v).trim().toLowerCase().replace(/_/g, ' ');
+          if (key) rowIdx[key] = i;
+        }
+      });
+      const ri = name => rowIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
+      if (iEm  < 0) iEm  = EM_KEYS.reduce((f, k) => f >= 0 ? f : ri(k), -1);
+      if (iUlp < 0) iUlp = ULP_KEYS.reduce((f, k) => f >= 0 ? f : ri(k), -1);
+      if (iEm >= 0 || iUlp >= 0) dataStart = 1; // first row was a header row, skip it
+    }
+
+    if (iEm >= 0 && iUlp >= 0) {
+      allRows.slice(dataStart).forEach(row => {
+        const c   = row.c || [];
+        const em  = c[iEm]  && c[iEm].v  ? String(c[iEm].v).trim().toLowerCase()  : '';
+        const ulp = c[iUlp] && c[iUlp].v ? String(c[iUlp].v).trim() : '';
+        if (em && ulp) ulpMap[em] = ulp;
+      });
+    }
+  } catch(e) {
+    console.error('Utama CB:', e);
+    ulpMap = {};
+  }
+  _loadMainStats();
 }
 
 // ── JSONP Callback ────────────────────────────────────────────────────────────
@@ -722,10 +777,12 @@ function _gsheetCB(data) {
     const cols = data.table.cols || [];
     const rows = data.table.rows || [];
 
-    // Build column-name → index map (case-insensitive)
+    // Build column-name → index map (case-insensitive, underscore = space)
     const colIdx = {};
-    cols.forEach((c, i) => { if (c.label) colIdx[c.label.trim().toLowerCase()] = i; });
-    const ci = name => colIdx[name.toLowerCase()] ?? -1;
+    cols.forEach((c, i) => {
+      if (c.label) colIdx[c.label.trim().toLowerCase().replace(/_/g, ' ')] = i;
+    });
+    const ci = name => colIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
 
     // Today in DD/MM/YYYY (same format scraper stores)
     const t = new Date();
@@ -746,7 +803,7 @@ function _gsheetCB(data) {
       if (!nama) return;
 
       allData.push({
-        ulp:          '',
+        ulp:          ulpMap[email.toLowerCase()] || '',
         no:           seq++,
         nama_pasca:   nama,
         email_pasca:  email,
@@ -802,7 +859,17 @@ function getDisplayData() {
 
 function filterByUlp(idx) {
   activeUlp = idx === 0 ? 'all' : (ulpList[idx - 1] || 'all');
+  riwayatSelectedEmails = new Set(['__all__']); // reset pencacah selection when ULP changes
   render();
+  buildMsOptions();
+  refreshRiwayatViz();
+}
+
+// Helper: riwayatData filtered by active ULP
+function _ulpRiwayat() {
+  return activeUlp === 'all'
+    ? riwayatData
+    : riwayatData.filter(d => (ulpMap[d.email.toLowerCase()] || '') === activeUlp);
 }
 
 function totals(arr, sfx) {
@@ -1169,11 +1236,6 @@ function renderOneChart(sfx) {
 
 // ── Laporan Ringkasan ────────────────────────────────────────────────────────────
 function loadRingkasan() {
-  if (!GID_RINGKASAN) {
-    document.getElementById('ringkasanSection').innerHTML =
-      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Tren Ringkasan: isi <code>GID_RINGKASAN</code> di kode dashboard setelah tab "Ringkasan" dibuat.</p>';
-    return;
-  }
   const old = document.getElementById('_gsheet_ringkasan_script');
   if (old) old.remove();
   const s = document.createElement('script');
@@ -1213,19 +1275,25 @@ function _parseGvizTime(cell) {
 function _gsheetRingkasanCB(data) {
   try {
     ringkasanData = [];
+    const cols = data.table.cols || [];
+    const colIdx = {};
+    cols.forEach((c, i) => { if (c.label) colIdx[c.label.trim().toLowerCase().replace(/_/g, ' ')] = i; });
+    const ci = name => colIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
     (data.table.rows || []).forEach(row => {
       const c  = row.c || [];
-      const cv = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
-      if (!cv(0)) return;
+      const cv = i => (i >= 0 && c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
+      const iTgl = ci('tanggal') >= 0 ? ci('tanggal') : 0;
+      const iWkt = ci('waktu')   >= 0 ? ci('waktu')   : 1;
+      if (!cv(iTgl)) return;
       ringkasanData.push({
-        tanggal:      _parseGvizDate(c[0]),
-        waktu:        _parseGvizTime(c[1]),
-        open_pasca:   cv(2),
-        submit_pasca: cv(3),
-        reject_pasca: cv(4),
-        open_praba:   cv(5),
-        submit_praba: cv(6),
-        reject_praba: cv(7),
+        tanggal:      _parseGvizDate(c[iTgl]),
+        waktu:        _parseGvizTime(c[iWkt]),
+        open_pasca:   cv(ci('open pasca')),
+        submit_pasca: cv(ci('submit pasca')),
+        reject_pasca: cv(ci('reject pasca')),
+        open_praba:   cv(ci('open praba')),
+        submit_praba: cv(ci('submit praba')),
+        reject_praba: cv(ci('reject praba')),
       });
     });
     _refreshTimestamp();
@@ -1376,11 +1444,6 @@ function renderRingkasan() {
 
 // ── Progres Ringkasan per Pencacah ───────────────────────────────────────────────
 function loadRiwayat() {
-  if (!GID_RIWAYAT) {
-    document.getElementById('riwayatSection').innerHTML =
-      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Progres per Pencacah: isi <code>GID_RIWAYAT</code> setelah tab "Riwayat" dibuat.</p>';
-    return;
-  }
   const old = document.getElementById('_gsheet_riwayat_script');
   if (old) old.remove();
   const s = document.createElement('script');
@@ -1390,24 +1453,29 @@ function loadRiwayat() {
 }
 
 function _gsheetRiwayatCB(data) {
-  // Cols: 0=Tanggal, 1=Email, 2=Nama, 3=Open_Pasca, 4=Submit_Pasca, 5=Reject_Pasca,
-  //       6=Open_Praba, 7=Submit_Praba, 8=Reject_Praba
   try {
     riwayatData = [];
+    const cols = data.table.cols || [];
+    const colIdx = {};
+    cols.forEach((c, i) => { if (c.label) colIdx[c.label.trim().toLowerCase().replace(/_/g, ' ')] = i; });
+    const ci = name => colIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
     (data.table.rows || []).forEach(row => {
       const c  = row.c || [];
-      const cv = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
-      if (!cv(0) && !cv(1)) return;
+      const cv = i => (i >= 0 && c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
+      const iTgl = ci('tanggal') >= 0 ? ci('tanggal') : 0;
+      const iEm  = ci('email')   >= 0 ? ci('email')   : 1;
+      const iNm  = ci('nama')    >= 0 ? ci('nama')    : 2;
+      if (!cv(iTgl) && !cv(iEm)) return;
       riwayatData.push({
-        tanggal:      _parseGvizDate(c[0]),
-        email:        cv(1) ? String(cv(1)).trim() : '',
-        nama:         cv(2) ? String(cv(2)).trim() : '',
-        open_pasca:   cv(3),
-        submit_pasca: cv(4),
-        reject_pasca: cv(5),
-        open_praba:   cv(6),
-        submit_praba: cv(7),
-        reject_praba: cv(8),
+        tanggal:      _parseGvizDate(c[iTgl]),
+        email:        cv(iEm) ? String(cv(iEm)).trim() : '',
+        nama:         cv(iNm) ? String(cv(iNm)).trim() : '',
+        open_pasca:   cv(ci('open pasca')),
+        submit_pasca: cv(ci('submit pasca')),
+        reject_pasca: cv(ci('reject pasca')),
+        open_praba:   cv(ci('open praba')),
+        submit_praba: cv(ci('submit praba')),
+        reject_praba: cv(ci('reject praba')),
       });
     });
     renderRiwayat();
@@ -1576,7 +1644,7 @@ function getMsLabel() {
   if (riwayatSelectedEmails.has('__all__')) return 'Semua Petugas';
   const cnt = riwayatSelectedEmails.size;
   if (cnt === 0) return '— Pilih Petugas —';
-  const total = new Set(riwayatData.map(d => d.email).filter(Boolean)).size;
+  const total = new Set(_ulpRiwayat().map(d => d.email).filter(Boolean)).size;
   return cnt >= total ? 'Semua Petugas' : `${cnt} Petugas dipilih`;
 }
 
@@ -1621,7 +1689,7 @@ function buildMsOptions() {
   const list = document.getElementById('msRiwayatList');
   if (!list) return;
   const q         = riwayatMsQuery.toLowerCase();
-  const allEmails = [...new Set(riwayatData.map(d => d.email).filter(Boolean))].sort();
+  const allEmails = [...new Set(_ulpRiwayat().map(d => d.email).filter(Boolean))].sort();
   const vis = q
     ? allEmails.filter(e => {
         const nama = (riwayatData.find(d => d.email === e)?.nama || '').toLowerCase();
@@ -1639,7 +1707,7 @@ function buildMsOptions() {
 }
 
 function togglePencacah(email) {
-  const allEmails = [...new Set(riwayatData.map(d => d.email).filter(Boolean))];
+  const allEmails = [...new Set(_ulpRiwayat().map(d => d.email).filter(Boolean))];
   const isAll = riwayatSelectedEmails.has('__all__');
   if (isAll) {
     riwayatSelectedEmails = new Set(allEmails);
@@ -1670,7 +1738,7 @@ function clearPencacah() {
 
 // ── Refresh riwayat chart + table (no full DOM rebuild) ───────────────────────
 function refreshRiwayatViz() {
-  const filteredData = applyDateFilter(riwayatData, riwayatFilter);
+  const filteredData = applyDateFilter(_ulpRiwayat(), riwayatFilter);
   const allEmails    = [...new Set(filteredData.map(d => d.email).filter(Boolean))].sort();
   // Latest dates on the LEFT
   const allDates     = [...new Set(filteredData.map(d => d.tanggal))].sort((a, b) => parseDMY(a).localeCompare(parseDMY(b))).reverse();
@@ -1809,47 +1877,34 @@ function toggleSettings() {
   if (open) _populateSettingsInputs();
 }
 function _populateSettingsInputs() {
-  const { sid, gu, gh, gr } = _getSavedConfig();
-  if (sid && gu)
-    document.getElementById('cfgUrlUtama').value =
-      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gu}`;
-  if (sid && gh)
-    document.getElementById('cfgUrlRingkasan').value =
-      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gh}`;
-  if (sid && gr)
-    document.getElementById('cfgUrlRiwayat').value =
-      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gr}`;
+  const sid = localStorage.getItem('cfg_sheet_id') || '';
+  if (sid)
+    document.getElementById('cfgUrlSheet').value =
+      `https://docs.google.com/spreadsheets/d/${sid}/edit`;
 }
 function saveSheetConfig() {
-  const urlU = document.getElementById('cfgUrlUtama').value.trim();
-  const urlH = document.getElementById('cfgUrlRingkasan').value.trim();
-  const urlR = document.getElementById('cfgUrlRiwayat').value.trim();
-  const msg  = document.getElementById('cfgMsg');
-  const sid  = _parseSheetId(urlU) || _parseSheetId(urlH) || _parseSheetId(urlR);
-  const gidU = urlU ? _parseGid(urlU) : GID_UTAMA;
-  const gidH = _parseGid(urlH);
-  const gidR = _parseGid(urlR);
+  const url = document.getElementById('cfgUrlSheet').value.trim();
+  const msg = document.getElementById('cfgMsg');
+  const sid = _parseSheetId(url);
   if (!sid) { msg.textContent = '⚠️ URL tidak valid — pastikan URL berasal dari Google Sheets.'; return; }
-  localStorage.setItem('cfg_sheet_id',     sid);
-  localStorage.setItem('cfg_gid_utama',    gidU);
-  localStorage.setItem('cfg_gid_ringkasan', gidH);
-  localStorage.setItem('cfg_gid_riwayat',  gidR);
-  SHEET_ID = sid; GID_UTAMA = gidU; GID_RINGKASAN = gidH; GID_RIWAYAT = gidR;
-  msg.textContent = `✅ Disimpan — Sheet ID: ${sid.slice(0,14)}… | Utama: ${gidU} | Ringkasan: ${gidH} | Riwayat: ${gidR}`;
+  localStorage.setItem('cfg_sheet_id', sid);
+  SHEET_ID = sid;
+  msg.textContent = `✅ Disimpan — Sheet ID: ${sid}`;
   loadData(); loadRingkasan(); loadRiwayat();
 }
 function resetSheetConfig() {
   localStorage.removeItem('cfg_sheet_id');
-  localStorage.removeItem('cfg_gid_utama');
-  localStorage.removeItem('cfg_gid_ringkasan');
-  localStorage.removeItem('cfg_gid_riwayat');
-  document.getElementById('cfgUrlUtama').value    = '';
-  document.getElementById('cfgUrlRingkasan').value = '';
-  document.getElementById('cfgUrlRiwayat').value  = '';
-  ({ SHEET_ID, GID_UTAMA, GID_RINGKASAN, GID_RIWAYAT } = _DEFAULTS);
+  ['cfg_gid_utama','cfg_gid_ringkasan','cfg_gid_riwayat'].forEach(k => localStorage.removeItem(k));
+  document.getElementById('cfgUrlSheet').value = '';
+  SHEET_ID = _DEFAULT_SHEET_ID;
   document.getElementById('cfgMsg').textContent = '↺ Kembali ke sumber data default.';
   loadData(); loadRingkasan(); loadRiwayat();
 }
+
+// ── Scroll-to-top ─────────────────────────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 300);
+}, { passive: true });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 _loadSheetConfig();

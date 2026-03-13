@@ -89,14 +89,31 @@ Ikuti langkah ini **satu kali** sebelum pertama kali menjalankan scraper.
 
 1. Buka [Google Sheets](https://sheets.google.com) → buat spreadsheet baru
 2. Beri nama, misalnya: `Rekap FASIH 2025`
-3. Buat **dua sheet** (tab di bawah):
-   - Klik **+** di pojok kiri bawah
-   - Sheet pertama beri nama: `Ringkasan`
-   - Sheet kedua beri nama: `Riwayat`
+3. Buat **tiga sheet** (tab di bawah) dengan nama persis seperti berikut:
+   - `Utama` — daftar petugas dan kolom ULP (untuk filter di dashboard)
+   - `Ringkasan` — rekap total harian otomatis dari scraper
+   - `Riwayat` — detail per pencacah setiap kali scraper dijalankan
+
+> **Penting:** Nama tab harus persis `Utama`, `Ringkasan`, dan `Riwayat` (huruf kapital di awal). Dashboard membaca tab berdasarkan nama ini secara otomatis.
 
 ---
 
-### Langkah 2 — Buat Apps Script
+### Langkah 2 — Isi tab Utama (daftar petugas & ULP)
+
+Tab `Utama` digunakan oleh dashboard untuk mengelompokkan petugas per ULP. Isi dengan format berikut:
+
+| ULP | Nama | Email |
+|-----|------|-------|
+| ULP Singaraja | Budi Santoso | budi.santoso@bps.go.id |
+| ULP Buleleng | Ani Rahayu | ani.rahayu@bps.go.id |
+
+- Baris pertama = header
+- Kolom `Email` harus diisi dengan username SSO BPS yang sama dengan file `daftar_petugas.xlsx`
+- Kolom `ULP` digunakan sebagai kategori filter di dashboard
+
+---
+
+### Langkah 3 — Buat Apps Script
 
 1. Di spreadsheet, klik menu **Extensions → Apps Script**
 2. Hapus semua kode yang ada, lalu **paste kode berikut**:
@@ -144,7 +161,7 @@ function doPost(e) {
 
 ---
 
-### Langkah 3 — Deploy sebagai Web App
+### Langkah 4 — Deploy sebagai Web App
 
 1. Klik menu **Deploy → New deployment**
 2. Di samping "Select type", klik ikon ⚙️ → pilih **Web app**
@@ -163,15 +180,30 @@ function doPost(e) {
 
 ---
 
-### Langkah 4 — Isi URL di scraper
+### Langkah 5 — Isi URL di scraper
 
-Kembali ke halaman scraper, tempel URL tersebut di kolom **Sheets URL**. URL akan tersimpan otomatis di browser, jadi tidak perlu diisi ulang setiap kali.
+Kembali ke halaman scraper, tempel URL Apps Script tersebut di kolom **Sheets URL**. URL akan tersimpan otomatis di browser, jadi tidak perlu diisi ulang setiap kali.
+
+---
+
+### Langkah 6 — Hubungkan dashboard ke Google Sheets
+
+1. Buka dashboard di [s.bps.go.id/5108_dashboardGCPLN](http://s.bps.go.id/5108_dashboardGCPLN)
+2. Klik ikon **⚙️ Pengaturan** di pojok kanan atas
+3. Tempel **URL spreadsheet** Google Sheets Anda (cukup satu URL — tab mana saja)
+4. Klik **💾 Simpan & Muat**
+
+Dashboard otomatis menemukan tab `Utama`, `Ringkasan`, dan `Riwayat` berdasarkan nama.
 
 ---
 
 ## Bagian 2 — Membaca Google Sheets
 
-Hasil scraper otomatis tersimpan ke Google Sheets dalam dua sheet:
+Hasil scraper otomatis tersimpan ke Google Sheets dalam tiga sheet:
+
+### Sheet "Utama" — daftar petugas per ULP
+
+Diisi manual, berisi pemetaan petugas ke ULP masing-masing. Digunakan oleh dashboard untuk tombol filter ULP.
 
 ### Sheet "Ringkasan" — rekap harian
 
@@ -205,9 +237,17 @@ Dashboard di halaman yang sama menampilkan visualisasi data dari Google Sheets s
 
 ### Cara membaca dashboard
 
-- **Kartu ringkasan** di bagian atas → total Open, Submitted, Rejected hari ini
+- **Tombol filter ULP** di bagian atas → klik untuk melihat data per kantor cabang
+- **Kartu ringkasan** → total Open, Submitted, Rejected hari ini
 - **Tabel per pencacah** → status masing-masing petugas (hijau = sudah submit semua, merah = masih ada yang open)
-- **Grafik tren** → progress harian dari awal periode survei
+- **Grafik tren harian** → progress dari awal periode survei
+- **Grafik per pencacah** → riwayat historis per petugas, dapat difilter per ULP dan per individu
+
+### Navigasi dashboard
+
+- Klik **tombol ULP** di atas untuk memfilter semua tampilan berdasarkan kantor cabang
+- Gunakan **tombol ↑** di pojok kanan bawah untuk kembali ke atas halaman
+- Klik **⚙️** di header untuk mengubah sumber data Google Sheets
 
 ### Memperbarui data di dashboard
 
@@ -228,6 +268,12 @@ Klik **▶ Run** lagi. Scraper akan mengulang dari awal. File Excel akan di-over
 
 **Data di dashboard tidak berubah?**
 Refresh halaman browser (`F5`). Jika masih tidak berubah, cek apakah scraper sudah benar-benar selesai (status "Selesai ✓").
+
+**Filter ULP tidak muncul?**
+Pastikan tab `Utama` sudah diisi dan memiliki kolom `ULP` dan `Email`. Setelah diisi, refresh dashboard.
+
+**Dashboard tidak bisa membaca data?**
+Klik ⚙️ di header → pastikan URL spreadsheet sudah diisi dan benar → klik Simpan & Muat.
 
 ---
 
@@ -297,23 +343,27 @@ python gui_fasih.py
 Akan muncul jendela aplikasi seperti ini:
 
 ```
-┌─────────────────────────────────────────┐
-│  FASIH Scraper — BPS                    │
-├─────────────────────────────────────────┤
-│ File Petugas: [____________] [Browse…]  │
-│ Username:     [____________]            │
-│ Password:     [____________] [Tampilkan]│
-│ UPI: [____]   UP3: [______]            │
-│ Sheets URL:   [________________________]│
-│                                         │
-│ [▶ Run] [■ Stop] [📂 Buka Folder Hasil]│
-│                                         │
-│ Log:                                    │
-│ ┌─────────────────────────────────────┐ │
-│ │ [INFO] 53 petugas loaded...         │ │
-│ │ [DONE] pascabayar: 53 petugas       │ │
-│ └─────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  FASIH Scraper — BPS                         │
+├──────────────────────────────────────────────┤
+│ File Petugas: [____________________] [Browse]│
+│ Username:     [____________________]         │
+│ Password:     [____________________][Tampil] │
+│ UPI: [______]  UP3: [________]               │
+│ Sheets URL:   [____________________________] │
+│                                              │
+│ ┌─ FortiClient VPN (opsional) ─────────────┐ │
+│ │ [ ] Reconnect VPN sebelum Run            │ │
+│ └──────────────────────────────────────────┘ │
+│                                              │
+│ [▶ Run] [■ Stop] [📂 Buka Folder Hasil]      │
+│                                              │
+│ Log:                                         │
+│ ┌──────────────────────────────────────────┐ │
+│ │ [INFO] 53 petugas loaded...              │ │
+│ │ [DONE] pascabayar: 53 petugas            │ │
+│ └──────────────────────────────────────────┘ │
+└──────────────────────────────────────────────┘
 ```
 
 ---
@@ -330,6 +380,8 @@ Akan muncul jendela aplikasi seperti ini:
 | **Sheets URL** | URL Apps Script (lihat [cara setup](#cara-setup-google-sheets--apps-script)) |
 
 Klik **▶ Run** — log berjalan real-time di bawah.
+
+> **VPN:** Jika jaringan kantor memerlukan VPN, centang **Reconnect VPN sebelum Run** dan isi nama koneksi VPN Anda. Mendukung FortiClient dan VPN Windows standar.
 
 ---
 
