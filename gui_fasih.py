@@ -104,11 +104,16 @@ class FasihScraperGUI:
         self.stop_btn = ttk.Button(
             btn_frame, text="■  Stop", command=self._stop, width=12, state="disabled"
         )
-        self.stop_btn.pack(side=tk.LEFT)
+        self.stop_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        self.open_btn = ttk.Button(
+            btn_frame, text="📂  Buka Folder Hasil", command=self._open_output, state="disabled"
+        )
+        self.open_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         self.status_var = tk.StringVar(value="")
         ttk.Label(btn_frame, textvariable=self.status_var, foreground="#555").pack(
-            side=tk.LEFT, padx=14
+            side=tk.LEFT, padx=6
         )
 
         # ── Log ───────────────────────────────────────────────────────────────
@@ -132,6 +137,11 @@ class FasihScraperGUI:
         )
         if path:
             self.input_var.set(path)
+
+    def _open_output(self):
+        out = os.path.abspath(scrape_fasih.OUTPUT_DIR)
+        os.makedirs(out, exist_ok=True)
+        os.startfile(out)
 
     def _toggle_pass(self):
         self._pass_entry.config(show="" if self.show_pass_var.get() else "●")
@@ -167,6 +177,7 @@ class FasihScraperGUI:
         self._stop_event = threading.Event()
         self.run_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
+        self.open_btn.configure(state="disabled")
         self.status_var.set("Berjalan…")
 
         self._thread = threading.Thread(
@@ -209,6 +220,8 @@ class FasihScraperGUI:
         self.stop_btn.configure(state="disabled")
         stopped = self._stop_event.is_set()
         self.status_var.set("Dihentikan." if stopped else "Selesai ✓")
+        if not stopped:
+            self.open_btn.configure(state="normal")
 
     def _stop(self):
         self._stop_event.set()

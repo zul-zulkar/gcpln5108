@@ -231,6 +231,154 @@ Refresh halaman browser (`F5`). Jika masih tidak berubah, cek apakah scraper sud
 
 ---
 
+## Bagian 4 — Menjalankan Scraper di PC Sendiri (Aplikasi Desktop)
+
+Gunakan cara ini jika ingin menjalankan scraper **langsung di PC masing-masing** tanpa bergantung pada server pusat.
+
+---
+
+### Langkah 1 — Install Python
+
+1. Buka [python.org/downloads](https://www.python.org/downloads/)
+2. Download Python **3.11** atau lebih baru
+3. Saat instalasi, **centang** opsi **"Add Python to PATH"**
+4. Klik Install Now
+
+Cek instalasi: buka Command Prompt, ketik:
+```
+python --version
+```
+Harus muncul versi Python, misal `Python 3.11.x`.
+
+---
+
+### Langkah 2 — Salin file program
+
+Salin folder ini ke PC Anda (bisa lewat flashdisk, Google Drive, atau email):
+
+```
+fasih_scraper/
+├── gui_fasih.py        ← aplikasi utama
+├── scrape_fasih.py     ← engine scraping
+├── requirements.txt    ← daftar library
+└── input/
+    └── daftar_petugas.xlsx
+```
+
+---
+
+### Langkah 3 — Install library
+
+Buka Command Prompt, masuk ke folder program:
+```
+cd C:\path\ke\fasih_scraper
+```
+
+Install semua library:
+```
+pip install -r requirements.txt
+```
+
+Install browser Playwright (hanya perlu dilakukan sekali):
+```
+playwright install chromium
+```
+
+> Jika muncul error `pip tidak dikenal`, coba: `python -m pip install -r requirements.txt`
+
+---
+
+### Langkah 4 — Jalankan aplikasi
+
+```
+python gui_fasih.py
+```
+
+Akan muncul jendela aplikasi seperti ini:
+
+```
+┌─────────────────────────────────────────┐
+│  FASIH Scraper — BPS                    │
+├─────────────────────────────────────────┤
+│ File Petugas: [____________] [Browse…]  │
+│ Username:     [____________]            │
+│ Password:     [____________] [Tampilkan]│
+│ UPI: [____]   UP3: [______]            │
+│ Sheets URL:   [________________________]│
+│                                         │
+│ [▶ Run] [■ Stop] [📂 Buka Folder Hasil]│
+│                                         │
+│ Log:                                    │
+│ ┌─────────────────────────────────────┐ │
+│ │ [INFO] 53 petugas loaded...         │ │
+│ │ [DONE] pascabayar: 53 petugas       │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### Langkah 5 — Isi form dan jalankan
+
+| Field | Isi dengan |
+|-------|-----------|
+| **File Petugas** | Klik Browse → pilih `daftar_petugas.xlsx` |
+| **Username** | Username SSO BPS Anda (`nama.nip@bps.go.id`) |
+| **Password** | Password SSO BPS Anda |
+| **UPI** | Kode UPI, contoh: `[55]` untuk Bali |
+| **UP3** | Kode UP3, contoh: `[55UTR]` untuk Bali Utara |
+| **Sheets URL** | URL Apps Script (lihat [cara setup](#cara-setup-google-sheets--apps-script)) |
+
+Klik **▶ Run** — log berjalan real-time di bawah.
+
+---
+
+### Langkah 6 — Hasil scraping
+
+Setelah selesai (muncul status **"Selesai ✓"**):
+
+- Klik **📂 Buka Folder Hasil** → folder `output/` terbuka di Explorer
+- Di dalamnya terdapat file Excel:
+  ```
+  rekap_fasih_pascabayar_20250313_083000.xlsx
+  rekap_fasih_prabayar_20250313_083500.xlsx
+  ```
+- Data juga otomatis terkirim ke Google Sheets (jika Sheets URL diisi)
+
+---
+
+### Membuat shortcut agar mudah dibuka
+
+1. Klik kanan di Desktop → **New → Shortcut**
+2. Isi lokasi: `python C:\path\ke\fasih_scraper\gui_fasih.py`
+3. Klik Next → beri nama `FASIH Scraper` → Finish
+
+Atau buat file `jalankan.bat` di folder program:
+```bat
+@echo off
+cd /d %~dp0
+python gui_fasih.py
+```
+Klik dua kali file ini untuk membuka aplikasi.
+
+---
+
+### Troubleshooting
+
+**`ModuleNotFoundError: No module named 'playwright'`**
+→ Jalankan ulang: `pip install -r requirements.txt`
+
+**`playwright install` gagal / browser tidak terbuka**
+→ Jalankan: `playwright install chromium --with-deps`
+
+**Login SSO gagal**
+→ Pastikan username format `nama.nip@bps.go.id` dan password sama dengan login ke `sso.bps.go.id`
+
+**Jendela tidak muncul saat klik Run**
+→ Cek apakah file `daftar_petugas.xlsx` sudah dipilih dan path-nya benar
+
+---
+
 ## Kontak
 
 Untuk pertanyaan teknis, hubungi pengelola sistem di BPS Bali Utara.
