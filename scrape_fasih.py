@@ -522,15 +522,17 @@ async def main():
     append_detail_snapshot(all_results)
 
 
-async def main_with_stop(stop_event, input_file=None, username=None, password=None, headless=False):
+async def main_with_stop(stop_event, input_file=None, username=None, password=None, headless=False, sheets_url=None):
     """Entry point untuk GUI — menerima parameter dinamis dan stop_event."""
-    global INPUT_FILE, USERNAME, PASSWORD
+    global INPUT_FILE, USERNAME, PASSWORD, SHEETS_WEBHOOK_URL
     if input_file:
         INPUT_FILE = input_file
     if username:
         USERNAME = username
     if password:
         PASSWORD = password
+    if sheets_url is not None:
+        SHEETS_WEBHOOK_URL = sheets_url
 
     petugas_list = read_petugas()
     print(f"[INFO] {len(petugas_list)} petugas loaded dari {INPUT_FILE}")

@@ -43,7 +43,8 @@ Di halaman scraper:
 1. **File Petugas** → klik **Browse** → pilih file `daftar_petugas.xlsx`
 2. **Username** → isi dengan username SSO BPS **Anda sendiri** (bukan petugas)
 3. **Password** → isi dengan password SSO BPS Anda
-4. Klik tombol **▶ Run**
+4. **Sheets URL** → isi dengan URL Apps Script milik Anda (lihat [cara mendapatkan URL ini](#cara-setup-google-sheets--apps-script))
+5. Klik tombol **▶ Run**
 
 > Gunakan akun SSO BPS Anda sendiri. Akun ini hanya digunakan untuk login ke FASIH, tidak disimpan di mana pun.
 
@@ -71,6 +72,96 @@ Kolom yang tersedia:
 
 | No | Nama | Email | Open | Submitted by Pencacah | Rejected by Admin Kabupaten |
 |----|------|-------|------|-----------------------|-----------------------------|
+
+---
+
+---
+
+## Cara Setup Google Sheets & Apps Script
+
+Ikuti langkah ini **satu kali** sebelum pertama kali menjalankan scraper.
+
+### Langkah 1 — Buat Google Sheets
+
+1. Buka [Google Sheets](https://sheets.google.com) → buat spreadsheet baru
+2. Beri nama, misalnya: `Rekap FASIH 2025`
+3. Buat **dua sheet** (tab di bawah):
+   - Klik **+** di pojok kiri bawah
+   - Sheet pertama beri nama: `Ringkasan`
+   - Sheet kedua beri nama: `Riwayat`
+
+---
+
+### Langkah 2 — Buat Apps Script
+
+1. Di spreadsheet, klik menu **Extensions → Apps Script**
+2. Hapus semua kode yang ada, lalu **paste kode berikut**:
+
+```javascript
+function doPost(e) {
+  try {
+    const ss   = SpreadsheetApp.getActiveSpreadsheet();
+    const data = JSON.parse(e.postData.contents);
+
+    if (data.type === "detail") {
+      // ── Sheet Riwayat ─────────────────────────────────────────────
+      const ws = ss.getSheetByName("Riwayat") || ss.insertSheet("Riwayat");
+      if (ws.getLastRow() === 0) {
+        ws.appendRow(["Tanggal","Waktu","Nama","Email",
+          "Open Pasca","Submit Pasca","Reject Pasca",
+          "Open Praba","Submit Praba","Reject Praba"]);
+      }
+      (data.rows || []).forEach(r => {
+        ws.appendRow([data.tanggal, data.waktu, r.nama, r.email,
+          r.open_pasca, r.submit_pasca, r.reject_pasca,
+          r.open_praba, r.submit_praba, r.reject_praba]);
+      });
+    } else {
+      // ── Sheet Ringkasan ───────────────────────────────────────────
+      const ws = ss.getSheetByName("Ringkasan") || ss.insertSheet("Ringkasan");
+      if (ws.getLastRow() === 0) {
+        ws.appendRow(["Tanggal","Waktu",
+          "Open Pasca","Submit Pasca","Reject Pasca",
+          "Open Praba","Submit Praba","Reject Praba"]);
+      }
+      ws.appendRow([data.tanggal, data.waktu,
+        data.open_pasca, data.submit_pasca, data.reject_pasca,
+        data.open_praba, data.submit_praba, data.reject_praba]);
+    }
+
+    return ContentService.createTextOutput("ok");
+  } catch(err) {
+    return ContentService.createTextOutput("error: " + err.message);
+  }
+}
+```
+
+3. Klik **💾 Simpan** (Ctrl+S)
+
+---
+
+### Langkah 3 — Deploy sebagai Web App
+
+1. Klik menu **Deploy → New deployment**
+2. Di samping "Select type", klik ikon ⚙️ → pilih **Web app**
+3. Isi pengaturan:
+   - **Description**: `FASIH Webhook`
+   - **Execute as**: `Me`
+   - **Who has access**: `Anyone`
+4. Klik **Deploy**
+5. Klik **Authorize access** → pilih akun Google Anda → klik **Allow**
+6. Salin URL yang muncul — bentuknya:
+   ```
+   https://script.google.com/macros/s/XXXXX.../exec
+   ```
+
+> **Simpan URL ini** — inilah yang diisi di kolom **Sheets URL** pada halaman scraper.
+
+---
+
+### Langkah 4 — Isi URL di scraper
+
+Kembali ke halaman scraper, tempel URL tersebut di kolom **Sheets URL**. URL akan tersimpan otomatis di browser, jadi tidak perlu diisi ulang setiap kali.
 
 ---
 

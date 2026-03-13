@@ -67,6 +67,7 @@ def _auto_run():
         params      = _sched["params"].copy()
         vpn_enabled = _sched["vpn_enabled"]
         vpn_host    = _sched["vpn_host"]
+        sheets_url  = params.get("sheets_url", "")
         if not params:
             return
         # Bersihkan pesan lama di queue agar stream tidak baca DONE dari run sebelumnya
@@ -103,6 +104,7 @@ def _auto_run():
                     params["username"],
                     params["password"],
                     headless=False,
+                    sheets_url=sheets_url,
                 )
             )
         except Exception as exc:
@@ -423,6 +425,11 @@ HTML = r"""<!DOCTYPE html>
       <span id="nextRunText"></span>
     </div>
 
+    <div class="form-row">
+      <label>Sheets URL</label>
+      <input type="text" id="sheetsUrl" placeholder="URL Apps Script Web App (opsional)" autocomplete="off" oninput="saveSheetsUrl()">
+    </div>
+
     <div class="auto-row">
       <label class="lbl">Auto VPN</label>
       <input type="checkbox" id="chkVpn" onchange="toggleAuto()">
@@ -562,11 +569,12 @@ function runScraper() {
 
   const vpnEnabled = document.getElementById('chkVpn').checked;
   const vpnHost    = document.getElementById('vpnHost').value.trim();
+  const sheetsUrl  = document.getElementById('sheetsUrl').value.trim();
 
   fetch('/run', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({input_file: uploadedPath, username, password, vpn_enabled: vpnEnabled, vpn_host: vpnHost})
+    body: JSON.stringify({input_file: uploadedPath, username, password, vpn_enabled: vpnEnabled, vpn_host: vpnHost, sheets_url: sheetsUrl})
   })
   .then(r => r.json())
   .then(data => {
@@ -658,6 +666,9 @@ function loadDownloads() {
 function saveVpnHost() {
   localStorage.setItem('vpnHost', document.getElementById('vpnHost').value);
 }
+function saveSheetsUrl() {
+  localStorage.setItem('sheetsUrl', document.getElementById('sheetsUrl').value);
+}
 
 function pollStatus() {
   fetch('/status').then(r => r.json()).then(syncAutoUI).catch(() => {});
@@ -665,9 +676,11 @@ function pollStatus() {
 setInterval(pollStatus, 10000);
 pollStatus();
 
-// Restore VPN host dari localStorage
+// Restore dari localStorage
 const _savedVpn = localStorage.getItem('vpnHost');
 if (_savedVpn) document.getElementById('vpnHost').value = _savedVpn;
+const _savedSheets = localStorage.getItem('sheetsUrl');
+if (_savedSheets) document.getElementById('sheetsUrl').value = _savedSheets;
 </script>
 </body>
 </html>"""
@@ -725,12 +738,13 @@ def run_scraper():
 
         vpn_enabled = bool(data.get("vpn_enabled", False))
         vpn_host    = data.get("vpn_host", "").strip()
+        sheets_url  = data.get("sheets_url", "").strip()
 
         stop_event = threading.Event()
         _state["running"]    = True
         _state["stop_event"] = stop_event
         # Simpan params untuk auto-run
-        _sched["params"]      = {"input_file": input_file, "username": username, "password": password}
+        _sched["params"]      = {"input_file": input_file, "username": username, "password": password, "sheets_url": sheets_url}
         _sched["vpn_enabled"] = vpn_enabled
         _sched["vpn_host"]    = vpn_host
 
@@ -757,7 +771,7 @@ def run_scraper():
         asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(
-                scrape_fasih.main_with_stop(stop_event, input_file, username, password)
+                scrape_fasih.main_with_stop(stop_event, input_file, username, password, sheets_url=sheets_url)
             )
         except Exception as exc:
             print(f"\n[ERROR] {exc}")
