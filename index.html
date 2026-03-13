@@ -1799,7 +1799,7 @@ function saveSheetConfig() {
   localStorage.setItem('cfg_sheet_id',    sid);
   localStorage.setItem('cfg_gid_harian',  gidH);
   localStorage.setItem('cfg_gid_riwayat', gidR);
-  _loadSheetConfig();
+  SHEET_ID = sid; GID_HARIAN = gidH; GID_RIWAYAT = gidR;
   msg.textContent = `✅ Disimpan — Sheet ID: ${sid.slice(0,14)}… | Harian: ${gidH} | Riwayat: ${gidR}`;
   loadData(); loadHarian(); loadRiwayat();
 }

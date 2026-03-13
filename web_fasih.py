@@ -94,19 +94,23 @@ def _sess(sid: str):
 
 def _evict_stale_sessions():
     """Remove sessions idle longer than _SESSION_TTL. Runs in a background thread."""
-    cutoff = time.time() - _SESSION_TTL
-    with _sessions_lock:
-        stale = [sid for sid, s in _sessions.items()
-                 if not s.get("running") and s.get("last_active", 0) < cutoff]
-        for sid in stale:
-            sched = _sessions[sid].get("sched", {})
-            t = sched.get("timer")
-            if t:
-                t.cancel()
-            del _sessions[sid]
-    t = threading.Timer(_SESSION_TTL / 2, _evict_stale_sessions)
-    t.daemon = True
-    t.start()
+    try:
+        cutoff = time.time() - _SESSION_TTL
+        with _sessions_lock:
+            stale = [sid for sid, s in _sessions.items()
+                     if not s.get("running") and s.get("last_active", 0) < cutoff]
+            for sid in stale:
+                sched = _sessions[sid].get("sched", {})
+                t = sched.get("timer")
+                if t:
+                    t.cancel()
+                del _sessions[sid]
+    except Exception:
+        pass
+    finally:
+        t = threading.Timer(_SESSION_TTL / 2, _evict_stale_sessions)
+        t.daemon = True
+        t.start()
 
 
 # ── Auto-scheduler (per session) ────────────────────────────────────────────────
