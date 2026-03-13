@@ -619,9 +619,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-let SHEET_ID  = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
-let GID_HARIAN  = '187552406';
-let GID_RIWAYAT = '1075204205';
+const _DEFAULTS = { SHEET_ID: '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs', GID_HARIAN: '187552406', GID_RIWAYAT: '1075204205' };
+let SHEET_ID  = _DEFAULTS.SHEET_ID;
+let GID_HARIAN  = _DEFAULTS.GID_HARIAN;
+let GID_RIWAYAT = _DEFAULTS.GID_RIWAYAT;
 
 function _parseSheetId(url) {
   const m = url.match(/\/spreadsheets\/d\/([\w-]+)/);
@@ -1806,9 +1807,7 @@ function resetSheetConfig() {
   localStorage.removeItem('cfg_gid_riwayat');
   document.getElementById('cfgUrlHarian').value  = '';
   document.getElementById('cfgUrlRiwayat').value = '';
-  SHEET_ID    = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
-  GID_HARIAN  = '187552406';
-  GID_RIWAYAT = '1075204205';
+  ({ SHEET_ID, GID_HARIAN, GID_RIWAYAT } = _DEFAULTS);
   document.getElementById('cfgMsg').textContent = '↺ Kembali ke sumber data default.';
   loadData(); loadHarian(); loadRiwayat();
 }
