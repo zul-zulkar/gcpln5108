@@ -563,11 +563,44 @@
     <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
       <span id="themeIcon">🌙</span>
     </button>
+    <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
+      ⚙️ Sumber Data
+    </button>
     <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
       <span id="refreshIcon">🔄</span> Refresh
     </button>
   </div>
 </header>
+
+<div id="settingsPanel" style="display:none; background:#1a3f6f; border-top:1px solid rgba(255,255,255,.15); padding:.75rem 1.25rem;">
+  <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; max-width:900px;">
+    <div style="flex:1; min-width:260px;">
+      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
+        URL tab <strong style="color:#fff">Harian</strong> (buka tab tsb di Sheets, copy URL-nya)
+      </label>
+      <input id="cfgUrlHarian" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
+        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
+               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
+        URL tab <strong style="color:#fff">Riwayat</strong>
+      </label>
+      <input id="cfgUrlRiwayat" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
+        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
+               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
+    </div>
+    <div style="display:flex; gap:.5rem; align-items:center;">
+      <button class="btn-refresh" onclick="saveSheetConfig()" style="background:rgba(16,185,129,.8); border-color:rgba(16,185,129,.9);">
+        💾 Simpan &amp; Muat
+      </button>
+      <button class="btn-refresh" onclick="resetSheetConfig()" style="background:rgba(255,255,255,.12);" title="Kembali ke sumber data default">
+        ↺ Default
+      </button>
+    </div>
+    <div id="cfgMsg" style="font-size:.75rem; color:rgba(255,255,255,.7); width:100%;"></div>
+  </div>
+</div>
 
 <main>
   <div id="errBox"></div>
@@ -586,9 +619,26 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const SHEET_ID   = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
-const GID_HARIAN   = '187552406';  // ← gid tab "Harian"
-const GID_RIWAYAT  = '1075204205';           // ← isi gid tab "Riwayat" setelah dibuat
+let SHEET_ID  = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+let GID_HARIAN  = '187552406';
+let GID_RIWAYAT = '1075204205';
+
+function _parseSheetId(url) {
+  const m = url.match(/\/spreadsheets\/d\/([\w-]+)/);
+  return m ? m[1] : null;
+}
+function _parseGid(url) {
+  const m = url.match(/[?&#]gid=(\d+)/);
+  return m ? m[1] : '0';
+}
+function _loadSheetConfig() {
+  const sid = localStorage.getItem('cfg_sheet_id');
+  const gh  = localStorage.getItem('cfg_gid_harian');
+  const gr  = localStorage.getItem('cfg_gid_riwayat');
+  if (sid) SHEET_ID    = sid;
+  if (gh)  GID_HARIAN  = gh;
+  if (gr)  GID_RIWAYAT = gr;
+}
 // Col 0=ULP, 1=No, 2=Nama(pasca), 3=Email(pasca), 4=Open(pasca), 5=Submit(pasca), 6=Reject(pasca)
 //           7=Nama(praba), 8=Email(praba), 9=Open(praba), 10=Submit(praba), 11=Reject(praba)
 const GVZ_BASE   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:L500&gid=0`;
@@ -1716,7 +1766,55 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   }
 });
 
+// ── Sheet Config Panel ────────────────────────────────────────────────────────
+function toggleSettings() {
+  const p = document.getElementById('settingsPanel');
+  const open = p.style.display === 'none';
+  p.style.display = open ? 'block' : 'none';
+  if (open) _populateSettingsInputs();
+}
+function _populateSettingsInputs() {
+  // Show current values in the inputs so user can see what's active
+  const sid = localStorage.getItem('cfg_sheet_id')  || '';
+  const gh  = localStorage.getItem('cfg_gid_harian') || '';
+  const gr  = localStorage.getItem('cfg_gid_riwayat')|| '';
+  if (sid && gh)
+    document.getElementById('cfgUrlHarian').value =
+      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gh}`;
+  if (sid && gr)
+    document.getElementById('cfgUrlRiwayat').value =
+      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gr}`;
+}
+function saveSheetConfig() {
+  const urlH = document.getElementById('cfgUrlHarian').value.trim();
+  const urlR = document.getElementById('cfgUrlRiwayat').value.trim();
+  const msg  = document.getElementById('cfgMsg');
+  const sid  = _parseSheetId(urlH) || _parseSheetId(urlR);
+  const gidH = _parseGid(urlH);
+  const gidR = _parseGid(urlR);
+  if (!sid) { msg.textContent = '⚠️ URL tidak valid — pastikan URL berasal dari Google Sheets.'; return; }
+  localStorage.setItem('cfg_sheet_id',    sid);
+  localStorage.setItem('cfg_gid_harian',  gidH);
+  localStorage.setItem('cfg_gid_riwayat', gidR);
+  _loadSheetConfig();
+  msg.textContent = `✅ Disimpan — Sheet ID: ${sid.slice(0,14)}… | Harian: ${gidH} | Riwayat: ${gidR}`;
+  loadData(); loadHarian(); loadRiwayat();
+}
+function resetSheetConfig() {
+  localStorage.removeItem('cfg_sheet_id');
+  localStorage.removeItem('cfg_gid_harian');
+  localStorage.removeItem('cfg_gid_riwayat');
+  document.getElementById('cfgUrlHarian').value  = '';
+  document.getElementById('cfgUrlRiwayat').value = '';
+  SHEET_ID    = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
+  GID_HARIAN  = '187552406';
+  GID_RIWAYAT = '1075204205';
+  document.getElementById('cfgMsg').textContent = '↺ Kembali ke sumber data default.';
+  loadData(); loadHarian(); loadRiwayat();
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+_loadSheetConfig();
 setInterval(loadData,    5 * 60 * 1000);
 setInterval(loadHarian,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);
