@@ -279,9 +279,103 @@ Klik ⚙️ di header → pastikan URL spreadsheet sudah diisi dan benar → kli
 
 ## Bagian 4 — Menjalankan Scraper di PC Sendiri (Aplikasi Desktop)
 
-Gunakan cara ini jika ingin menjalankan scraper **langsung di PC masing-masing** tanpa bergantung pada server pusat.
+Ada **dua cara** menjalankan scraper di PC sendiri:
+
+| Cara | Cocok untuk | Syarat |
+|------|-------------|--------|
+| **EXE (direkomendasikan)** | Distribusi ke banyak pengguna | Tidak perlu install Python |
+| **Python langsung** | Developer / pengembang | Python harus sudah terinstall |
 
 ---
+
+## Cara A — Menggunakan Aplikasi EXE (Direkomendasikan)
+
+Tidak perlu install Python. Cukup salin folder dan langsung jalankan.
+
+### Langkah 1 — Salin folder FASIH_Scraper
+
+Minta folder `FASIH_Scraper` dari pengelola sistem (atau salin dari flashdisk/Google Drive).
+
+Struktur folder yang diterima:
+
+```
+FASIH_Scraper\
+├── FASIH_Scraper.exe   ← klik dua kali untuk membuka
+├── browsers\           ← Chromium browser (sudah termasuk)
+├── _internal\          ← file pendukung (jangan dihapus)
+└── output\             ← hasil Excel tersimpan di sini (dibuat otomatis)
+```
+
+> **Penting:** Kirim/salin **seluruh folder** `FASIH_Scraper`, bukan hanya file `.exe`-nya saja. Jika file di dalam folder dihapus atau dipindah, aplikasi tidak akan berjalan.
+
+---
+
+### Langkah 2 — Jalankan aplikasi
+
+Klik dua kali `FASIH_Scraper.exe`.
+
+Jika muncul peringatan Windows Defender / SmartScreen:
+- Klik **More info** → **Run anyway**
+
+---
+
+### Langkah 3 — Isi form dan jalankan
+
+| Field | Isi dengan |
+|-------|-----------|
+| **File Petugas** | Klik Browse → pilih `daftar_petugas.xlsx` |
+| **Username** | Username SSO BPS Anda (`nama.nip@bps.go.id`) |
+| **Password** | Password SSO BPS Anda |
+| **UPI** | Kode UPI, contoh: `[55]` untuk Bali |
+| **UP3** | Kode UP3, contoh: `[55UTR]` untuk Bali Utara |
+| **Sheets URL** | URL Apps Script (lihat [cara setup](#cara-setup-google-sheets--apps-script)) |
+
+Klik **▶ Run** — log berjalan real-time di bawah.
+
+> **VPN:** Jika jaringan kantor memerlukan VPN, centang **Reconnect VPN sebelum Run** dan isi nama koneksi VPN Anda. Mendukung FortiClient dan VPN Windows standar.
+
+---
+
+### Langkah 4 — Hasil scraping
+
+Setelah selesai (muncul status **"Selesai ✓"**):
+
+- Klik **📂 Buka Folder Hasil** → folder `output\` terbuka di Explorer
+- Di dalamnya terdapat file Excel:
+  ```
+  rekap_fasih_pascabayar_20250313_083000.xlsx
+  rekap_fasih_prabayar_20250313_083500.xlsx
+  ```
+- Data juga otomatis terkirim ke Google Sheets (jika Sheets URL diisi)
+
+---
+
+### Membuat shortcut di Desktop
+
+1. Klik kanan `FASIH_Scraper.exe` → **Send to → Desktop (create shortcut)**
+2. Shortcut siap digunakan
+
+---
+
+### Troubleshooting EXE
+
+**Peringatan "Windows protected your PC" / SmartScreen**
+→ Klik **More info** → **Run anyway**. Peringatan ini muncul karena EXE belum memiliki sertifikat publisher berbayar — aman untuk diabaikan.
+
+**Aplikasi langsung tertutup saat dibuka**
+→ Pastikan folder `_internal\` dan `browsers\` ada di lokasi yang sama dengan `FASIH_Scraper.exe`. Jangan pindah hanya file `.exe`-nya.
+
+**Login SSO gagal**
+→ Pastikan username format `nama.nip@bps.go.id` dan password sama dengan login ke `sso.bps.go.id`
+
+**Jendela tidak muncul saat klik Run**
+→ Cek apakah file `daftar_petugas.xlsx` sudah dipilih dan path-nya benar
+
+---
+
+## Cara B — Menggunakan Python (untuk Developer)
+
+Gunakan cara ini jika ingin memodifikasi program atau tidak ingin menyalin folder besar.
 
 ### Langkah 1 — Install Python
 
@@ -300,14 +394,14 @@ Harus muncul versi Python, misal `Python 3.11.x`.
 
 ### Langkah 2 — Salin file program
 
-Salin folder ini ke PC Anda (bisa lewat flashdisk, Google Drive, atau email):
+Salin file-file berikut ke satu folder di PC:
 
 ```
-fasih_scraper/
+fasih_scraper\
 ├── gui_fasih.py        ← aplikasi utama
 ├── scrape_fasih.py     ← engine scraping
 ├── requirements.txt    ← daftar library
-└── input/
+└── input\
     └── daftar_petugas.xlsx
 ```
 
@@ -340,82 +434,22 @@ playwright install chromium
 python gui_fasih.py
 ```
 
-Akan muncul jendela aplikasi seperti ini:
+---
+
+### Membuat EXE dari source code
+
+Jika ingin membuat ulang EXE dari source code:
 
 ```
-┌──────────────────────────────────────────────┐
-│  FASIH Scraper — BPS                         │
-├──────────────────────────────────────────────┤
-│ File Petugas: [____________________] [Browse]│
-│ Username:     [____________________]         │
-│ Password:     [____________________][Tampil] │
-│ UPI: [______]  UP3: [________]               │
-│ Sheets URL:   [____________________________] │
-│                                              │
-│ ┌─ FortiClient VPN (opsional) ─────────────┐ │
-│ │ [ ] Reconnect VPN sebelum Run            │ │
-│ └──────────────────────────────────────────┘ │
-│                                              │
-│ [▶ Run] [■ Stop] [📂 Buka Folder Hasil]      │
-│                                              │
-│ Log:                                         │
-│ ┌──────────────────────────────────────────┐ │
-│ │ [INFO] 53 petugas loaded...              │ │
-│ │ [DONE] pascabayar: 53 petugas            │ │
-│ └──────────────────────────────────────────┘ │
-└──────────────────────────────────────────────┘
+pip install pyinstaller
+playwright install chromium
 ```
 
----
-
-### Langkah 5 — Isi form dan jalankan
-
-| Field | Isi dengan |
-|-------|-----------|
-| **File Petugas** | Klik Browse → pilih `daftar_petugas.xlsx` |
-| **Username** | Username SSO BPS Anda (`nama.nip@bps.go.id`) |
-| **Password** | Password SSO BPS Anda |
-| **UPI** | Kode UPI, contoh: `[55]` untuk Bali |
-| **UP3** | Kode UP3, contoh: `[55UTR]` untuk Bali Utara |
-| **Sheets URL** | URL Apps Script (lihat [cara setup](#cara-setup-google-sheets--apps-script)) |
-
-Klik **▶ Run** — log berjalan real-time di bawah.
-
-> **VPN:** Jika jaringan kantor memerlukan VPN, centang **Reconnect VPN sebelum Run** dan isi nama koneksi VPN Anda. Mendukung FortiClient dan VPN Windows standar.
+Lalu klik dua kali `build.bat` — file EXE dan browser akan otomatis dikompilasi dan dikemas ke folder `dist\FASIH_Scraper\`.
 
 ---
 
-### Langkah 6 — Hasil scraping
-
-Setelah selesai (muncul status **"Selesai ✓"**):
-
-- Klik **📂 Buka Folder Hasil** → folder `output/` terbuka di Explorer
-- Di dalamnya terdapat file Excel:
-  ```
-  rekap_fasih_pascabayar_20250313_083000.xlsx
-  rekap_fasih_prabayar_20250313_083500.xlsx
-  ```
-- Data juga otomatis terkirim ke Google Sheets (jika Sheets URL diisi)
-
----
-
-### Membuat shortcut agar mudah dibuka
-
-1. Klik kanan di Desktop → **New → Shortcut**
-2. Isi lokasi: `python C:\path\ke\fasih_scraper\gui_fasih.py`
-3. Klik Next → beri nama `FASIH Scraper` → Finish
-
-Atau buat file `jalankan.bat` di folder program:
-```bat
-@echo off
-cd /d %~dp0
-python gui_fasih.py
-```
-Klik dua kali file ini untuk membuka aplikasi.
-
----
-
-### Troubleshooting
+### Troubleshooting Python
 
 **`ModuleNotFoundError: No module named 'playwright'`**
 → Jalankan ulang: `pip install -r requirements.txt`
