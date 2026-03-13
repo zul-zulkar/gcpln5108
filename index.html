@@ -18,6 +18,9 @@
       --text:  #1E293B;
       --muted: #64748B;
       --border:#E2E8F0;
+      --surface:     #F8FAFC;
+      --surface-hov: #EDF2F7;
+      --trk-bg:      #E2E8F0;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -150,7 +153,7 @@
     .ulp-badge.pasca { background:#DBEAFE; color:#2563EB; }
     .ulp-badge.praba { background:#EDE9FE; color:#7C3AED; }
     .ulp-prog-track {
-      flex: 1; background: #E2E8F0; border-radius: 999px; height: 7px; overflow: hidden;
+      flex: 1; background: var(--trk-bg); border-radius: 999px; height: 7px; overflow: hidden;
     }
     .ulp-prog-fill-p { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#3B82F6,#60A5FA); transition: width .5s ease; }
     .ulp-prog-fill-r { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#8B5CF6,#A78BFA); transition: width .5s ease; }
@@ -220,7 +223,7 @@
     }
     .prog-meta strong { color: var(--text); }
     .prog-track {
-      background: #E2E8F0; border-radius: 999px; height: 9px; overflow: hidden;
+      background: var(--trk-bg); border-radius: 999px; height: 9px; overflow: hidden;
     }
     .prog-fill { height: 100%; border-radius: 999px; transition: width .6s ease; }
     .pasca .prog-fill { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
@@ -299,7 +302,7 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: .35rem .65rem;
-      background: #F8FAFC;
+      background: var(--surface);
     }
     .search-box input {
       border: none; outline: none; background: transparent;
@@ -313,7 +316,7 @@
     thead tr:last-child  th { padding: .3rem .7rem .55rem; }
 
     th {
-      background: #F8FAFC;
+      background: var(--surface);
       color: var(--muted); font-weight: 700;
       font-size: .68rem; text-transform: uppercase; letter-spacing: .07em;
       white-space: nowrap;
@@ -321,7 +324,7 @@
       cursor: pointer; user-select: none;
       transition: background .1s;
     }
-    th:hover { background: #EDF2F7; }
+    th:hover { background: var(--surface-hov); }
     th.sort-asc::after  { content: ' ↑'; color: var(--blue); }
     th.sort-desc::after { content: ' ↓'; color: var(--blue); }
 
@@ -335,7 +338,7 @@
       white-space: nowrap;
     }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #F8FAFC; }
+    tr:hover td { background: var(--surface); }
 
     /* Sticky header + horizontal scroll */
     .tbl-scroll { overflow: auto; -webkit-overflow-scrolling: touch; position: relative; max-height: 520px; }
@@ -343,13 +346,13 @@
     thead tr:last-child  th { position: sticky; top: 1.75rem; z-index: 4; }
     .col-freeze-no {
       position: sticky; left: 0; z-index: 3;
-      background: #F8FAFC;
+      background: var(--surface);
       min-width: 44px; width: 44px;
       box-shadow: none;
     }
     .col-nama { min-width: 130px; width: 130px; }
-    tbody .col-freeze-no { background: #fff; }
-    tr:hover .col-freeze-no { background: #F8FAFC; }
+    tbody .col-freeze-no { background: var(--card); }
+    tr:hover .col-freeze-no { background: var(--surface); }
 
     .td-no   { color: var(--muted); font-size: .75rem; text-align: center; }
     .td-nama { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -377,8 +380,8 @@
     }
     .loader {
       width: 40px; height: 40px;
-      border: 3px solid #E2E8F0;
-      border-top-color: #2E75B6;
+      border: 3px solid var(--trk-bg);
+      border-top-color: var(--primary-light);
       border-radius: 50%;
       animation: spin .8s linear infinite;
       margin: 0 auto .75rem;
@@ -406,7 +409,7 @@
     .dfq-btn {
       padding: .26rem .6rem;
       border: 1.5px solid var(--border); border-radius: 6px;
-      background: #F8FAFC; color: var(--muted);
+      background: var(--surface); color: var(--muted);
       font-size: .73rem; font-weight: 700; cursor: pointer;
       transition: all .13s;
     }
@@ -416,7 +419,7 @@
     input.dfq-input[type="date"] {
       border: 1.5px solid var(--border); border-radius: 6px;
       padding: .26rem .48rem; font-size: .73rem;
-      color: var(--text); background: #F8FAFC; outline: none; cursor: pointer;
+      color: var(--text); background: var(--surface); outline: none; cursor: pointer;
     }
     input.dfq-input[type="date"]:focus { border-color: var(--primary-light); }
 
@@ -426,7 +429,7 @@
       display: flex; align-items: center; gap: .4rem;
       padding: .3rem .7rem;
       border: 1.5px solid var(--border); border-radius: 7px;
-      background: #F8FAFC; font-size: .78rem; font-weight: 600; color: var(--text);
+      background: var(--surface); font-size: .78rem; font-weight: 600; color: var(--text);
       cursor: pointer; transition: border-color .13s; white-space: nowrap; max-width: 220px;
     }
     .ms-trigger:hover { border-color: var(--primary-light); }
@@ -463,12 +466,87 @@
       padding: .32rem .7rem; cursor: pointer; font-size: .8rem; color: var(--text);
       user-select: none;
     }
-    .ms-item:hover { background: #F1F5F9; }
+    .ms-item:hover { background: var(--surface-hov); }
     .ms-item input[type="checkbox"] {
       accent-color: var(--primary); width: 14px; height: 14px;
       flex-shrink: 0; cursor: pointer;
     }
+
+    /* ── Dark mode (explicit toggle) ───────────────────── */
+    :root[data-theme="dark"] {
+      --primary:       #2E75B6;
+      --primary-light: #60A5FA;
+      --bg:          #0F172A;
+      --card:        #1E293B;
+      --text:        #E2E8F0;
+      --muted:       #94A3B8;
+      --border:      #334155;
+      --surface:     #1E2D42;
+      --surface-hov: #253548;
+      --trk-bg:      #334155;
+    }
+    :root[data-theme="dark"] .s-stat.open   { background: rgba(245,158,11,.14); }
+    :root[data-theme="dark"] .s-stat.submit { background: rgba(16,185,129,.13); }
+    :root[data-theme="dark"] .s-stat.reject { background: rgba(239,68,68,.13); }
+    :root[data-theme="dark"] .ulp-row.ulp-active { background: rgba(59,130,246,.12); }
+    :root[data-theme="dark"] .err-box { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #FCA5A5; }
+    :root[data-theme="dark"] .th-pasca { background: rgba(59,130,246,.12) !important; }
+    :root[data-theme="dark"] .th-praba { background: rgba(139,92,246,.12)  !important; }
+    :root[data-theme="dark"] .td-pasca { background: rgba(59,130,246,.06); }
+    :root[data-theme="dark"] .td-praba { background: rgba(139,92,246,.06); }
+    :root[data-theme="dark"] select { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; color-scheme: dark; }
+    :root[data-theme="dark"] .ms-search-row input { background: var(--card); }
+    :root[data-theme="dark"] .ms-panel { background: var(--card); }
+
+    /* ── Dark mode (system preference) ─────────────────── */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --primary:       #2E75B6;
+        --primary-light: #60A5FA;
+        --bg:          #0F172A;
+        --card:        #1E293B;
+        --text:        #E2E8F0;
+        --muted:       #94A3B8;
+        --border:      #334155;
+        --surface:     #1E2D42;
+        --surface-hov: #253548;
+        --trk-bg:      #334155;
+      }
+      :root:not([data-theme="light"]) .s-stat.open   { background: rgba(245,158,11,.14); }
+      :root:not([data-theme="light"]) .s-stat.submit { background: rgba(16,185,129,.13); }
+      :root:not([data-theme="light"]) .s-stat.reject { background: rgba(239,68,68,.13); }
+      :root:not([data-theme="light"]) .ulp-row.ulp-active { background: rgba(59,130,246,.12); }
+      :root:not([data-theme="light"]) .err-box { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #FCA5A5; }
+      :root:not([data-theme="light"]) .th-pasca { background: rgba(59,130,246,.12) !important; }
+      :root:not([data-theme="light"]) .th-praba { background: rgba(139,92,246,.12)  !important; }
+      :root:not([data-theme="light"]) .td-pasca { background: rgba(59,130,246,.06); }
+      :root:not([data-theme="light"]) .td-praba { background: rgba(139,92,246,.06); }
+      :root:not([data-theme="light"]) select { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; color-scheme: dark; }
+      :root:not([data-theme="light"]) .ms-search-row input { background: var(--card); }
+      :root:not([data-theme="light"]) .ms-panel { background: var(--card); }
+    }
+
+    /* ── Theme toggle button ─────────────────────────── */
+    .btn-theme {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 8px;
+      cursor: pointer; font-size: 1rem;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .btn-theme:hover { background: rgba(255,255,255,.3); }
   </style>
+
+  <script>
+    /* ── Theme init — runs before render to avoid flash ── */
+    (function () {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
 </head>
 <body>
 
@@ -482,6 +560,9 @@
   </div>
   <div class="hdr-right">
     <span id="lastUpdated">–</span>
+    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
+      <span id="themeIcon">🌙</span>
+    </button>
     <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
       <span id="refreshIcon">🔄</span> Refresh
     </button>
@@ -1587,6 +1668,53 @@ function sortBy(col) {
   sortCol = col;
   renderTable();
 }
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function _isDark() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'dark')  return true;
+  if (t === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function _applyThemeIcon() {
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = _isDark() ? '☀️' : '🌙';
+}
+
+function _applyChartDefaults() {
+  if (typeof Chart === 'undefined') return;
+  const dark = _isDark();
+  Chart.defaults.color       = dark ? '#94A3B8' : '#64748B';
+  Chart.defaults.borderColor = dark ? '#334155' : '#E2E8F0';
+}
+
+function toggleTheme() {
+  const root = document.documentElement;
+  const next = _isDark() ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  _applyThemeIcon();
+  _applyChartDefaults();
+  // Re-render charts with new colors
+  if (allData.length)    render();
+  if (harianData.length) renderHarian();
+  if (riwayatData.length) renderRiwayat();
+}
+
+// Init theme icon on load
+_applyThemeIcon();
+_applyChartDefaults();
+// Update icon if system preference changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (!localStorage.getItem('theme')) {
+    _applyThemeIcon();
+    _applyChartDefaults();
+    if (allData.length)    render();
+    if (harianData.length) renderHarian();
+    if (riwayatData.length) renderRiwayat();
+  }
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 setInterval(loadData,    5 * 60 * 1000);
