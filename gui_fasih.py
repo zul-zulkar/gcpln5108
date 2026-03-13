@@ -30,7 +30,7 @@ class FasihScraperGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("FASIH Scraper — BPS")
-        self.root.geometry("750x580")
+        self.root.geometry("750x660")
         self.root.resizable(True, True)
 
         self._stop_event = threading.Event()
@@ -74,9 +74,30 @@ class FasihScraperGUI:
             command=self._toggle_pass,
         ).grid(row=2, column=2, padx=2)
 
+        # ── UPI Text ─────────────────────────────────────────────────────────
+        ttk.Label(main, text="UPI:").grid(row=3, column=0, sticky="w", pady=5)
+        self.upi_var = tk.StringVar(value="[55]")
+        ttk.Entry(main, textvariable=self.upi_var, width=20).grid(
+            row=3, column=1, sticky="w", padx=6
+        )
+
+        # ── UP3 Text ─────────────────────────────────────────────────────────
+        ttk.Label(main, text="UP3:").grid(row=4, column=0, sticky="w", pady=5)
+        self.up3_var = tk.StringVar(value="[55UTR]")
+        ttk.Entry(main, textvariable=self.up3_var, width=20).grid(
+            row=4, column=1, sticky="w", padx=6
+        )
+
+        # ── Sheets URL ───────────────────────────────────────────────────────
+        ttk.Label(main, text="Sheets URL:").grid(row=5, column=0, sticky="w", pady=5)
+        self.sheets_var = tk.StringVar()
+        ttk.Entry(main, textvariable=self.sheets_var, width=52).grid(
+            row=5, column=1, sticky="ew", padx=6, columnspan=2
+        )
+
         # ── Tombol Run / Stop ────────────────────────────────────────────────
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=3, column=0, columnspan=3, pady=10, sticky="w")
+        btn_frame.grid(row=6, column=0, columnspan=3, pady=10, sticky="w")
 
         self.run_btn = ttk.Button(btn_frame, text="▶  Run", command=self._run, width=12)
         self.run_btn.pack(side=tk.LEFT, padx=(0, 8))
@@ -92,14 +113,14 @@ class FasihScraperGUI:
         )
 
         # ── Log ───────────────────────────────────────────────────────────────
-        ttk.Label(main, text="Log:").grid(row=4, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(main, text="Log:").grid(row=7, column=0, sticky="w", pady=(8, 2))
         self.log = scrolledtext.ScrolledText(
-            main, height=22, state="disabled", font=("Consolas", 9), wrap=tk.WORD
+            main, height=18, state="disabled", font=("Consolas", 9), wrap=tk.WORD
         )
-        self.log.grid(row=5, column=0, columnspan=3, sticky="nsew")
+        self.log.grid(row=8, column=0, columnspan=3, sticky="nsew")
 
         main.columnconfigure(1, weight=1)
-        main.rowconfigure(5, weight=1)
+        main.rowconfigure(8, weight=1)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -123,8 +144,11 @@ class FasihScraperGUI:
 
     def _run(self):
         input_file = self.input_var.get().strip()
-        username = self.username_var.get().strip()
-        password = self.password_var.get().strip()
+        username   = self.username_var.get().strip()
+        password   = self.password_var.get().strip()
+        upi_text   = self.upi_var.get().strip()
+        up3_text   = self.up3_var.get().strip()
+        sheets_url = self.sheets_var.get().strip()
 
         if not input_file:
             messagebox.showwarning("Input", "Pilih file daftar petugas terlebih dahulu.")
@@ -146,13 +170,13 @@ class FasihScraperGUI:
 
         self._thread = threading.Thread(
             target=self._run_in_thread,
-            args=(input_file, username, password, self._stop_event),
+            args=(input_file, username, password, upi_text, up3_text, sheets_url, self._stop_event),
             daemon=True,
         )
         self._thread.start()
         self._poll()
 
-    def _run_in_thread(self, input_file, username, password, stop_event):
+    def _run_in_thread(self, input_file, username, password, upi_text, up3_text, sheets_url, stop_event):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -162,6 +186,9 @@ class FasihScraperGUI:
                     input_file=input_file,
                     username=username,
                     password=password,
+                    sheets_url=sheets_url,
+                    upi_text=upi_text,
+                    up3_text=up3_text,
                 )
             )
         except Exception as exc:

@@ -43,10 +43,14 @@ Di halaman scraper:
 1. **File Petugas** → klik **Browse** → pilih file `daftar_petugas.xlsx`
 2. **Username** → isi dengan username SSO BPS **Anda sendiri** (bukan petugas)
 3. **Password** → isi dengan password SSO BPS Anda
-4. **Sheets URL** → isi dengan URL Apps Script milik Anda (lihat [cara mendapatkan URL ini](#cara-setup-google-sheets--apps-script))
-5. Klik tombol **▶ Run**
+4. **UPI** → isi kode UPI wilayah Anda, contoh: `[55]` untuk Bali
+5. **UP3** → isi kode UP3 wilayah Anda, contoh: `[55UTR]` untuk Bali Utara
+6. **Sheets URL** → isi dengan URL Apps Script milik Anda (lihat [cara mendapatkan URL ini](#cara-setup-google-sheets--apps-script))
+7. Klik tombol **▶ Run**
 
 > Gunakan akun SSO BPS Anda sendiri. Akun ini hanya digunakan untuk login ke FASIH, tidak disimpan di mana pun.
+
+> **Catatan:** Setiap pengguna yang membuka halaman ini di browser berbeda berjalan secara **independen** — menjalankan scraper di satu browser tidak memengaruhi pengguna lain.
 
 ---
 

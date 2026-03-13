@@ -31,8 +31,8 @@ SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbz7m9dQ8sl9wqcnqW1
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def read_petugas():
-    wb = openpyxl.load_workbook(INPUT_FILE)
+def read_petugas(input_file=None):
+    wb = openpyxl.load_workbook(input_file or INPUT_FILE)
     ws = wb.active
     petugas = []
     for row in ws.iter_rows(min_row=2, values_only=True):
@@ -42,7 +42,7 @@ def read_petugas():
     return petugas
 
 
-async def login(page):
+async def login(page, username, password):
     """Login via SSO BPS."""
     print(f"[LOGIN] {page.url}")
 
@@ -56,8 +56,8 @@ async def login(page):
 
     try:
         user_el = await page.wait_for_selector("input[name='username']", timeout=10000)
-        await user_el.fill(USERNAME)
-        await page.fill("input[name='password']", PASSWORD)
+        await user_el.fill(username)
+        await page.fill("input[name='password']", password)
         await page.click("input[type='submit']")
         await page.wait_for_load_state("domcontentloaded", timeout=20000)
         print(f"[LOGIN] After submit: {page.url}")
@@ -211,7 +211,7 @@ async def extract_stats(page):
     return open_val, submitted_val, rejected_val
 
 
-async def scrape_survey(page, survey_name, url, petugas_list, stop_event=None):
+async def scrape_survey(page, survey_name, url, petugas_list, username, password, upi_text, up3_text, stop_event=None):
     """Scrape one survey for all petugas."""
     print(f"\n[SURVEY] {survey_name.upper()}")
 
@@ -223,7 +223,7 @@ async def scrape_survey(page, survey_name, url, petugas_list, stop_event=None):
         # Jika di-redirect ke login (session expired), login ulang
         if "fasih-sm.bps.go.id" not in page.url or "oauth" in page.url or "sso" in page.url:
             print(f"[LOGIN] Session expired, re-logging in... ({page.url})")
-            await login(page)
+            await login(page, username, password)
             # Setelah login, navigate ulang ke survey
             print("[NAV] Re-navigating after login...")
             await page.goto(url, wait_until="domcontentloaded", timeout=40000)
@@ -263,8 +263,8 @@ async def scrape_survey(page, survey_name, url, petugas_list, stop_event=None):
         print("[ERROR] Could not open filter sidebar")
         return []
 
-    await ngx_select(page, 'ngx-select[name="region1Id"]', UPI_TEXT)
-    await ngx_select(page, 'ngx-select[name="region2Id"]', UP3_TEXT)
+    await ngx_select(page, 'ngx-select[name="region1Id"]', upi_text)
+    await ngx_select(page, 'ngx-select[name="region2Id"]', up3_text)
 
     # Click Filter Data once with UPI/UP3 to trigger initial data load,
     # letting Angular fully initialize before starting the petugas loop
@@ -418,9 +418,9 @@ def save_results(results, label="rekap"):
     return out_path
 
 
-def append_detail_snapshot(all_results):
+def append_detail_snapshot(all_results, sheets_url=""):
     """Kirim data per pencacah ke Google Sheets (tab Riwayat) via Apps Script webhook."""
-    if not SHEETS_WEBHOOK_URL:
+    if not sheets_url:
         return
 
     pasca = {r["email"]: r for r in all_results.get("pascabayar", [])}
@@ -451,16 +451,16 @@ def append_detail_snapshot(all_results):
     }
 
     try:
-        resp = requests.post(SHEETS_WEBHOOK_URL, json=payload, timeout=30)
+        resp = requests.post(sheets_url, json=payload, timeout=30)
         print(f"[DETAIL] HTTP {resp.status_code} → {resp.text[:300]}")
     except Exception as e:
         print(f"[DETAIL] Gagal kirim: {e}")
 
 
-def append_daily_snapshot(all_results):
+def append_daily_snapshot(all_results, sheets_url=""):
     """Kirim ringkasan harian ke Google Sheets via Apps Script webhook."""
-    if not SHEETS_WEBHOOK_URL:
-        print("[SNAPSHOT] SHEETS_WEBHOOK_URL belum diset, snapshot dilewati.")
+    if not sheets_url:
+        print("[SNAPSHOT] Sheets URL belum diset, snapshot dilewati.")
         return
 
     def sum_num(results, key):
@@ -482,7 +482,7 @@ def append_daily_snapshot(all_results):
     }
 
     try:
-        resp = requests.post(SHEETS_WEBHOOK_URL, json=payload, timeout=15)
+        resp = requests.post(sheets_url, json=payload, timeout=15)
         print(
             f"[SNAPSHOT] HTTP {resp.status_code} → {resp.text[:300]}\n"
             f"  {payload['tanggal']} {payload['waktu']}  "
@@ -507,35 +507,33 @@ async def main():
         await page.goto(SURVEY_LIST_URL, wait_until="domcontentloaded", timeout=30000)
 
         if SURVEY_LIST_URL not in page.url:
-            await login(page)
+            await login(page, USERNAME, PASSWORD)
 
         print(f"[INFO] Logged in: {page.url}")
 
         all_results = {}
         for survey_name, url in SURVEYS.items():
-            results = await scrape_survey(page, survey_name, url, petugas_list)
+            results = await scrape_survey(page, survey_name, url, petugas_list, USERNAME, PASSWORD, UPI_TEXT, UP3_TEXT)
             all_results[survey_name] = results
 
         await browser.close()
 
-    append_daily_snapshot(all_results)
-    append_detail_snapshot(all_results)
+    append_daily_snapshot(all_results, SHEETS_WEBHOOK_URL)
+    append_detail_snapshot(all_results, SHEETS_WEBHOOK_URL)
 
 
-async def main_with_stop(stop_event, input_file=None, username=None, password=None, headless=False, sheets_url=None):
+async def main_with_stop(stop_event, input_file=None, username=None, password=None,
+                         headless=False, sheets_url=None, upi_text=None, up3_text=None):
     """Entry point untuk GUI — menerima parameter dinamis dan stop_event."""
-    global INPUT_FILE, USERNAME, PASSWORD, SHEETS_WEBHOOK_URL
-    if input_file:
-        INPUT_FILE = input_file
-    if username:
-        USERNAME = username
-    if password:
-        PASSWORD = password
-    if sheets_url is not None:
-        SHEETS_WEBHOOK_URL = sheets_url
+    _input   = input_file or INPUT_FILE
+    _user    = username   or USERNAME
+    _pass    = password   or PASSWORD
+    _sheets  = sheets_url if sheets_url is not None else SHEETS_WEBHOOK_URL
+    _upi     = upi_text   or UPI_TEXT
+    _up3     = up3_text   or UP3_TEXT
 
-    petugas_list = read_petugas()
-    print(f"[INFO] {len(petugas_list)} petugas loaded dari {INPUT_FILE}")
+    petugas_list = read_petugas(_input)
+    print(f"[INFO] {len(petugas_list)} petugas loaded dari {_input}")
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     async with async_playwright() as p:
@@ -547,7 +545,7 @@ async def main_with_stop(stop_event, input_file=None, username=None, password=No
         await page.goto(SURVEY_LIST_URL, wait_until="domcontentloaded", timeout=30000)
 
         if SURVEY_LIST_URL not in page.url:
-            await login(page)
+            await login(page, _user, _pass)
             # Tunggu Angular survey list selesai render setelah redirect SSO
             print("[INFO] Waiting for survey list to load...")
             try:
@@ -561,15 +559,16 @@ async def main_with_stop(stop_event, input_file=None, username=None, password=No
         for survey_name, url in SURVEYS.items():
             if stop_event and stop_event.is_set():
                 break
-            results = await scrape_survey(page, survey_name, url, petugas_list, stop_event)
+            results = await scrape_survey(page, survey_name, url, petugas_list,
+                                          _user, _pass, _upi, _up3, stop_event)
             all_results[survey_name] = results
 
         await browser.close()
         print("[INFO] Browser ditutup.")
 
     if not (stop_event and stop_event.is_set()):
-        append_daily_snapshot(all_results)
-        append_detail_snapshot(all_results)
+        append_daily_snapshot(all_results, _sheets)
+        append_detail_snapshot(all_results, _sheets)
 
 
 if __name__ == "__main__":

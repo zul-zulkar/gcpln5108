@@ -12,6 +12,7 @@ import json
 import socket
 import subprocess
 import time
+import uuid
 from datetime import datetime, timedelta
 
 from flask import Flask, Response, request, jsonify, render_template_string, send_file
@@ -22,112 +23,152 @@ app = Flask(__name__)
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-_lock = threading.Lock()
-_state = {"running": False, "stop_event": threading.Event(), "uploaded_file": ""}
-_log_queue: queue.Queue = queue.Queue()
 
-# ── Auto-scheduler ─────────────────────────────────────────────────────────────
-_sched = {
-    "enabled":       False,
-    "interval_mins": 120,     # total menit (default 2 jam)
-    "next_run":      None,    # datetime | None
-    "timer":         None,    # threading.Timer | None
-    "params":        {},      # {input_file, username, password}
-    "vpn_enabled":   False,
-    "vpn_host":      "",
-}
+# ── Per-thread stdout routing ───────────────────────────────────────────────────
+class _ThreadLocalStdout:
+    """Routes writes to the current thread's queue; falls back to real stdout."""
+    _local = threading.local()
 
+    @classmethod
+    def set_queue(cls, q):
+        cls._local.queue = q
 
-def _schedule_next():
-    """Pasang timer untuk run berikutnya. Harus dipanggil tanpa _lock."""
-    with _lock:
-        if not _sched["enabled"] or not _sched["params"]:
-            return
-        if _sched["timer"]:
-            _sched["timer"].cancel()
-        delay = _sched["interval_mins"] * 60
-        _sched["next_run"] = datetime.now() + timedelta(seconds=delay)
-        t = threading.Timer(delay, _auto_run)
-        t.daemon = True
-        t.start()
-        _sched["timer"] = t
+    @classmethod
+    def clear_queue(cls):
+        cls._local.queue = None
 
-
-def _auto_run():
-    """Dipanggil oleh timer — jalankan scraper dengan params terakhir."""
-    with _lock:
-        if _state["running"]:
-            # Sedang berjalan, tunda 5 menit lalu coba lagi
-            t = threading.Timer(300, _auto_run)
-            t.daemon = True
-            t.start()
-            _sched["timer"] = t
-            _sched["next_run"] = datetime.now() + timedelta(seconds=300)
-            return
-        params      = _sched["params"].copy()
-        vpn_enabled = _sched["vpn_enabled"]
-        vpn_host    = _sched["vpn_host"]
-        sheets_url  = params.get("sheets_url", "")
-        if not params:
-            return
-        # Bersihkan pesan lama di queue agar stream tidak baca DONE dari run sebelumnya
-        while not _log_queue.empty():
-            try: _log_queue.get_nowait()
-            except Exception: break
-        stop_event = threading.Event()
-        _state["running"]    = True
-        _state["stop_event"] = stop_event
-
-    _log_queue.put(f"\n[AUTO] ▶ Jadwal otomatis dimulai ({datetime.now().strftime('%H:%M:%S')})…\n")
-
-    def _run():
-        old_stdout = sys.stdout
-        sys.stdout = _QueueWriter()
-        # ── VPN ───────────────────────────────────────────────────────────────
-        if vpn_enabled and vpn_host:
-            if not ensure_vpn(vpn_host, params["username"], params["password"]):
-                print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
-                sys.stdout = old_stdout
-                _log_queue.put("\x00DONE\x00")
-                with _lock:
-                    _state["running"] = False
-                _schedule_next()
-                return
-        # ── Scrape ────────────────────────────────────────────────────────────
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(
-                scrape_fasih.main_with_stop(
-                    stop_event,
-                    params["input_file"],
-                    params["username"],
-                    params["password"],
-                    headless=False,
-                    sheets_url=sheets_url,
-                )
-            )
-        except Exception as exc:
-            print(f"\n[ERROR] {exc}")
-        finally:
-            loop.close()
-            sys.stdout = old_stdout
-            _log_queue.put("\x00DONE\x00")
-            with _lock:
-                _state["running"] = False
-            _schedule_next()  # di dalam finally agar selalu terpanggil
-
-    threading.Thread(target=_run, daemon=True).start()
-
-
-# ── Redirect stdout → queue ────────────────────────────────────────────────────
-class _QueueWriter:
     def write(self, text):
-        if text:
-            _log_queue.put(text)
+        q = getattr(self._local, "queue", None)
+        if q is not None and text:
+            q.put(text)
+        else:
+            sys.__stdout__.write(text)
 
     def flush(self):
         pass
+
+
+_tl_stdout = _ThreadLocalStdout()
+sys.stdout = _tl_stdout
+
+
+# ── Session store ───────────────────────────────────────────────────────────────
+_sessions: dict = {}
+_sessions_lock = threading.Lock()
+
+
+def _new_session() -> str:
+    sid = str(uuid.uuid4())
+    sess = {
+        "lock":       threading.Lock(),
+        "running":    False,
+        "stop_event": threading.Event(),
+        "log_queue":  queue.Queue(),
+        "sched": {
+            "enabled":       False,
+            "interval_mins": 120,
+            "next_run":      None,
+            "timer":         None,
+            "params":        {},
+            "vpn_enabled":   False,
+            "vpn_host":      "",
+        },
+    }
+    with _sessions_lock:
+        _sessions[sid] = sess
+    return sid
+
+
+def _sess(sid: str):
+    with _sessions_lock:
+        return _sessions.get(sid)
+
+
+# ── Auto-scheduler (per session) ────────────────────────────────────────────────
+def _schedule_next(sid: str):
+    sess = _sess(sid)
+    if not sess:
+        return
+    sched = sess["sched"]
+    with sess["lock"]:
+        if not sched["enabled"] or not sched["params"]:
+            return
+        if sched["timer"]:
+            sched["timer"].cancel()
+        delay = sched["interval_mins"] * 60
+        sched["next_run"] = datetime.now() + timedelta(seconds=delay)
+        t = threading.Timer(delay, _auto_run, args=(sid,))
+        t.daemon = True
+        t.start()
+        sched["timer"] = t
+
+
+def _auto_run(sid: str):
+    sess = _sess(sid)
+    if not sess:
+        return
+    sched = sess["sched"]
+    with sess["lock"]:
+        if sess["running"]:
+            t = threading.Timer(300, _auto_run, args=(sid,))
+            t.daemon = True
+            t.start()
+            sched["timer"] = t
+            sched["next_run"] = datetime.now() + timedelta(seconds=300)
+            return
+        params      = sched["params"].copy()
+        vpn_enabled = sched["vpn_enabled"]
+        vpn_host    = sched["vpn_host"]
+        if not params:
+            return
+        lq = sess["log_queue"]
+        while not lq.empty():
+            try: lq.get_nowait()
+            except Exception: break
+        stop_event = threading.Event()
+        sess["running"]    = True
+        sess["stop_event"] = stop_event
+
+    lq.put(f"\n[AUTO] ▶ Jadwal otomatis dimulai ({datetime.now().strftime('%H:%M:%S')})…\n")
+
+    sheets_url = params.get("sheets_url", "")
+    upi_text   = params.get("upi_text", "")
+    up3_text   = params.get("up3_text", "")
+
+    def _run():
+        _ThreadLocalStdout.set_queue(lq)
+        try:
+            if vpn_enabled and vpn_host:
+                if not ensure_vpn(vpn_host, params["username"], params["password"]):
+                    print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
+                    return
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(
+                    scrape_fasih.main_with_stop(
+                        stop_event,
+                        params["input_file"],
+                        params["username"],
+                        params["password"],
+                        headless=False,
+                        sheets_url=sheets_url,
+                        upi_text=upi_text,
+                        up3_text=up3_text,
+                    )
+                )
+            except Exception as exc:
+                print(f"\n[ERROR] {exc}")
+            finally:
+                loop.close()
+        finally:
+            _ThreadLocalStdout.clear_queue()
+            lq.put("\x00DONE\x00")
+            with sess["lock"]:
+                sess["running"] = False
+            _schedule_next(sid)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 # ── VPN helpers ────────────────────────────────────────────────────────────────
@@ -141,7 +182,6 @@ _FORTICLIENT_PATHS = [
 
 
 def _is_vpn_connected():
-    """Cek apakah host FASIH bisa dijangkau (VPN aktif)."""
     try:
         s = socket.create_connection((_FASIH_HOST, 443), timeout=5)
         s.close()
@@ -158,10 +198,6 @@ def _find_forticlient():
 
 
 def _get_forticlient_tunnels():
-    """
-    Baca daftar nama tunnel VPN yang sudah dikonfigurasi di FortiClient
-    dari registry Windows.
-    """
     tunnels = []
     try:
         import winreg
@@ -184,15 +220,10 @@ def _get_forticlient_tunnels():
                 pass
     except Exception:
         pass
-    return list(dict.fromkeys(tunnels))  # deduplicate, preserve order
+    return list(dict.fromkeys(tunnels))
 
 
 def _launch_forticlient_connect(fclient, tunnel, username, password):
-    """
-    Coba connect ke tunnel tertentu menggunakan FortiClient.exe.
-    Beberapa versi FortiClient mendukung argumen berbeda; dicoba secara berurutan.
-    """
-    # Daftar sintaks yang diketahui untuk berbagai versi FortiClient
     arg_variants = [
         ["--vpnconnect", tunnel, "--username", username, "--password", password],
         ["-vpnconnect", tunnel, "-username", username, "-password", password],
@@ -208,10 +239,7 @@ def _launch_forticlient_connect(fclient, tunnel, username, password):
             )
             if result.returncode == 0:
                 return True
-            # Beberapa versi return non-zero tapi tetap memproses perintah;
-            # lanjut tunggu koneksi daripada langsung berhenti.
         except subprocess.TimeoutExpired:
-            # Proses masih berjalan → dianggap berhasil dikirim
             return True
         except Exception:
             pass
@@ -219,13 +247,6 @@ def _launch_forticlient_connect(fclient, tunnel, username, password):
 
 
 def ensure_vpn(vpn_host, username, password):
-    """
-    Cek koneksi VPN. Jika belum terhubung:
-    1. FortiSSLVPNclient.exe → connect via CLI dengan host+credentials.
-    2. FortiClient.exe (baru) → baca tunnel dari registry, lalu auto-connect.
-    3. Fallback → buka GUI FortiClient, tunggu user connect manual.
-    Menunggu maks 3 menit sampai koneksi aktif, lalu lanjutkan scraping.
-    """
     if _is_vpn_connected():
         print("[VPN] Sudah terhubung ✓")
         return True
@@ -240,7 +261,6 @@ def ensure_vpn(vpn_host, username, password):
     basename = os.path.basename(fclient)
 
     if "SSLVPNclient" in basename:
-        # ── FortiSSLVPNclient: connect langsung dengan host + credentials ────
         print(f"[VPN] Menggunakan FortiSSLVPNclient CLI: {fclient}")
         try:
             subprocess.Popen(
@@ -251,9 +271,7 @@ def ensure_vpn(vpn_host, username, password):
             print("[VPN] Perintah connect dikirim.")
         except Exception as exc:
             print(f"[VPN] Gagal menjalankan FortiSSLVPNclient: {exc}")
-
     else:
-        # ── FortiClient.exe (versi baru): baca tunnel dari registry ─────────
         tunnels = _get_forticlient_tunnels()
         print(f"[VPN] Menggunakan FortiClient: {fclient}")
         print(f"[VPN] Tunnel ditemukan di registry: {tunnels if tunnels else '(tidak ada)'}")
@@ -267,7 +285,6 @@ def ensure_vpn(vpn_host, username, password):
                 break
 
         if not connected_cmd:
-            # Fallback: buka GUI, minta user connect manual
             print("[VPN] Tidak bisa auto-connect via CLI. Membuka FortiClient GUI…")
             print("[VPN] Silakan connect VPN secara manual di jendela yang terbuka.")
             try:
@@ -275,7 +292,6 @@ def ensure_vpn(vpn_host, username, password):
             except Exception as exc:
                 print(f"[VPN] Gagal membuka FortiClient: {exc}")
 
-    # Tunggu maks 3 menit (18 × 10 detik)
     max_checks = 18
     for attempt in range(max_checks):
         time.sleep(10)
@@ -317,6 +333,7 @@ HTML = r"""<!DOCTYPE html>
     font-size: .93rem; outline: none; transition: border .2s;
   }
   .form-row input:focus { border-color: #1a3a5c; }
+  .form-row input[type=text].half { flex: 0 0 160px; }
   .show-pass { font-size: .82rem; color: #555; cursor: pointer; white-space: nowrap; }
   .show-pass input { margin-right: 4px; cursor: pointer; }
   .btn-row { display: flex; gap: 10px; margin: 20px 0 16px; align-items: center; }
@@ -383,6 +400,10 @@ HTML = r"""<!DOCTYPE html>
     text-decoration:none; transition:opacity .15s;
   }
   .dl-btn:hover { opacity:.85; }
+  .section-divider {
+    font-size:.78rem; color:#aaa; text-transform:uppercase; letter-spacing:.5px;
+    margin: 16px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 4px;
+  }
 </style>
 </head>
 <body>
@@ -414,6 +435,20 @@ HTML = r"""<!DOCTYPE html>
       </label>
     </div>
 
+    <div class="section-divider">Konfigurasi Wilayah & Sheets</div>
+
+    <div class="form-row">
+      <label>UPI</label>
+      <input type="text" id="upiText" class="half" placeholder="mis. [55]" autocomplete="off" oninput="saveLocal('upiText')">
+      <label style="width:auto;margin-left:16px;">UP3</label>
+      <input type="text" id="up3Text" class="half" placeholder="mis. [55UTR]" autocomplete="off" oninput="saveLocal('up3Text')">
+    </div>
+
+    <div class="form-row">
+      <label>Sheets URL</label>
+      <input type="text" id="sheetsUrl" placeholder="URL Apps Script Web App (opsional)" autocomplete="off" oninput="saveLocal('sheetsUrl')">
+    </div>
+
     <div class="auto-row">
       <label class="lbl">Auto-run</label>
       <input type="checkbox" id="chkAuto" onchange="toggleAuto()">
@@ -425,22 +460,17 @@ HTML = r"""<!DOCTYPE html>
       <span id="nextRunText"></span>
     </div>
 
-    <div class="form-row">
-      <label>Sheets URL</label>
-      <input type="text" id="sheetsUrl" placeholder="URL Apps Script Web App (opsional)" autocomplete="off" oninput="saveSheetsUrl()">
-    </div>
-
     <div class="auto-row">
       <label class="lbl">Auto VPN</label>
       <input type="checkbox" id="chkVpn" onchange="toggleAuto()">
-      <input type="text" id="vpnHost" class="vpn-input" placeholder="Host VPN (mis. vpn.bps.go.id)" oninput="saveVpnHost()">
+      <input type="text" id="vpnHost" class="vpn-input" placeholder="Host VPN (mis. vpn.bps.go.id)" oninput="saveLocal('vpnHost')">
       <span id="vpnStatus"></span>
     </div>
 
     <div class="btn-row">
-      <button id="btnRun" onclick="runScraper()">&#9654; Run</button>
+      <button id="btnRun" onclick="runScraper()" disabled>&#9654; Run</button>
       <button id="btnStop" onclick="stopScraper()" disabled>&#9632; Stop</button>
-      <span id="statusText"><span class="dot" id="dot"></span>Siap</span>
+      <span id="statusText"><span class="dot" id="dot"></span>Memuat…</span>
     </div>
 
     <div style="display:flex;align-items:center;margin-bottom:6px;">
@@ -460,8 +490,19 @@ HTML = r"""<!DOCTYPE html>
 <script>
 let evtSource = null;
 let uploadedPath = '';
+let sessionId = null;
 
-// ── Drag & Drop ──────────────────────────────────────────────────────────────
+// ── Session init ──────────────────────────────────────────────────────────────
+async function initSession() {
+  const saved = localStorage.getItem('sessionId');
+  const url = saved ? `/session/new?sid=${saved}` : '/session/new';
+  const r = await fetch(url);
+  const d = await r.json();
+  sessionId = d.session_id;
+  localStorage.setItem('sessionId', sessionId);
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
 function onDragOver(e) {
   e.preventDefault();
   document.getElementById('dropZone').classList.add('drag-over');
@@ -536,11 +577,14 @@ function appendLog(text) {
 function clearLog() {
   document.getElementById('log').textContent = '';
 }
+function saveLocal(key) {
+  localStorage.setItem(key, document.getElementById(key).value);
+}
 
 // ── Stream ────────────────────────────────────────────────────────────────────
 function startStream() {
   if (evtSource) { evtSource.close(); evtSource = null; }
-  evtSource = new EventSource('/stream');
+  evtSource = new EventSource(`/stream?sid=${sessionId}`);
   evtSource.onmessage = e => {
     const data = JSON.parse(e.data);
     if (data.connected) return;
@@ -570,11 +614,18 @@ function runScraper() {
   const vpnEnabled = document.getElementById('chkVpn').checked;
   const vpnHost    = document.getElementById('vpnHost').value.trim();
   const sheetsUrl  = document.getElementById('sheetsUrl').value.trim();
+  const upiText    = document.getElementById('upiText').value.trim();
+  const up3Text    = document.getElementById('up3Text').value.trim();
 
   fetch('/run', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({input_file: uploadedPath, username, password, vpn_enabled: vpnEnabled, vpn_host: vpnHost, sheets_url: sheetsUrl})
+    body: JSON.stringify({
+      session_id: sessionId,
+      input_file: uploadedPath, username, password,
+      vpn_enabled: vpnEnabled, vpn_host: vpnHost,
+      sheets_url: sheetsUrl, upi_text: upiText, up3_text: up3Text
+    })
   })
   .then(r => r.json())
   .then(data => {
@@ -592,7 +643,11 @@ function runScraper() {
 }
 
 function stopScraper() {
-  fetch('/stop', {method: 'POST'}).then(() => {
+  fetch('/stop', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({session_id: sessionId})
+  }).then(() => {
     setStatus('Menghentikan…', 'running');
     document.getElementById('btnStop').disabled = true;
   });
@@ -608,13 +663,18 @@ function toggleAuto() {
   const vpnHost    = document.getElementById('vpnHost').value.trim();
   const username   = document.getElementById('username').value.trim();
   const password   = document.getElementById('password').value.trim();
+  const sheetsUrl  = document.getElementById('sheetsUrl').value.trim();
+  const upiText    = document.getElementById('upiText').value.trim();
+  const up3Text    = document.getElementById('up3Text').value.trim();
   fetch('/auto', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
+      session_id: sessionId,
       enabled, interval_mins: intervalMins,
       vpn_enabled: vpnEnabled, vpn_host: vpnHost,
-      input_file: uploadedPath, username, password
+      input_file: uploadedPath, username, password,
+      sheets_url: sheetsUrl, upi_text: upiText, up3_text: up3Text
     })
   }).then(r => r.json()).then(syncAutoUI);
 }
@@ -636,7 +696,6 @@ function syncAutoUI(data) {
     el.textContent = data.auto_enabled ? (data.params_ready ? '⏳ Menjadwalkan…' : '⏳ Isi file & kredensial lalu aktifkan auto-run.') : '';
   }
 
-  // Sinkronkan status running (untuk auto-run yang berjalan di background)
   if (data.running && !evtSource) {
     clearLog();
     setStatus('Berjalan… (auto)', 'running');
@@ -644,7 +703,6 @@ function syncAutoUI(data) {
     document.getElementById('btnStop').disabled = false;
     startStream();
   } else if (!data.running && document.getElementById('btnRun').disabled && !evtSource) {
-    // Sudah selesai tapi stream tidak aktif (misal: tab baru dibuka saat auto-run selesai)
     setStatus('Selesai ✓', 'done');
     document.getElementById('btnRun').disabled = false;
     document.getElementById('btnStop').disabled = true;
@@ -663,24 +721,29 @@ function loadDownloads() {
   }).catch(() => {});
 }
 
-function saveVpnHost() {
-  localStorage.setItem('vpnHost', document.getElementById('vpnHost').value);
-}
-function saveSheetsUrl() {
-  localStorage.setItem('sheetsUrl', document.getElementById('sheetsUrl').value);
-}
-
 function pollStatus() {
-  fetch('/status').then(r => r.json()).then(syncAutoUI).catch(() => {});
+  if (!sessionId) return;
+  fetch(`/status?sid=${sessionId}`).then(r => r.json()).then(syncAutoUI).catch(() => {});
 }
-setInterval(pollStatus, 10000);
-pollStatus();
 
-// Restore dari localStorage
-const _savedVpn = localStorage.getItem('vpnHost');
-if (_savedVpn) document.getElementById('vpnHost').value = _savedVpn;
-const _savedSheets = localStorage.getItem('sheetsUrl');
-if (_savedSheets) document.getElementById('sheetsUrl').value = _savedSheets;
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await initSession();
+
+  // Restore localStorage
+  ['upiText','up3Text','sheetsUrl','vpnHost'].forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v) document.getElementById(k).value = v;
+  });
+
+  // Enable Run button now that session is ready
+  setStatus('Siap', '');
+  document.getElementById('btnRun').disabled = false;
+
+  loadDownloads();
+  pollStatus();
+  setInterval(pollStatus, 10000);
+});
 </script>
 </body>
 </html>"""
@@ -690,6 +753,15 @@ if (_savedSheets) document.getElementById('sheetsUrl').value = _savedSheets;
 @app.route("/")
 def index():
     return render_template_string(HTML)
+
+
+@app.route("/session/new")
+def new_session():
+    sid = request.args.get("sid", "").strip()
+    if sid and _sess(sid) is not None:
+        return jsonify({"session_id": sid})
+    new_sid = _new_session()
+    return jsonify({"session_id": new_sid})
 
 
 @app.route("/upload", methods=["POST"])
@@ -707,7 +779,6 @@ def upload_file():
     save_path = os.path.join(UPLOAD_DIR, filename)
     f.save(save_path)
 
-    # Count rows to show feedback
     try:
         import openpyxl
         wb = openpyxl.load_workbook(save_path, read_only=True)
@@ -722,14 +793,19 @@ def upload_file():
 
 @app.route("/run", methods=["POST"])
 def run_scraper():
-    with _lock:
-        if _state["running"]:
+    data = request.get_json() or {}
+    sid  = data.get("session_id", "").strip()
+    sess = _sess(sid)
+    if sess is None:
+        return jsonify({"error": "Session tidak valid, refresh halaman."}), 400
+
+    with sess["lock"]:
+        if sess["running"]:
             return jsonify({"error": "Scraper sudah berjalan"}), 400
 
-        data = request.get_json() or {}
-        input_file = data.get("input_file", "").strip()
-        username   = data.get("username",   "").strip()
-        password   = data.get("password",   "").strip()
+        input_file  = data.get("input_file",  "").strip()
+        username    = data.get("username",    "").strip()
+        password    = data.get("password",    "").strip()
 
         if not input_file or not os.path.exists(input_file):
             return jsonify({"error": f"File tidak ditemukan: {input_file}"}), 400
@@ -737,51 +813,52 @@ def run_scraper():
             return jsonify({"error": "Username/password kosong"}), 400
 
         vpn_enabled = bool(data.get("vpn_enabled", False))
-        vpn_host    = data.get("vpn_host", "").strip()
-        sheets_url  = data.get("sheets_url", "").strip()
+        vpn_host    = data.get("vpn_host",    "").strip()
+        sheets_url  = data.get("sheets_url",  "").strip()
+        upi_text    = data.get("upi_text",    "").strip()
+        up3_text    = data.get("up3_text",    "").strip()
 
         stop_event = threading.Event()
-        _state["running"]    = True
-        _state["stop_event"] = stop_event
-        # Simpan params untuk auto-run
-        _sched["params"]      = {"input_file": input_file, "username": username, "password": password, "sheets_url": sheets_url}
-        _sched["vpn_enabled"] = vpn_enabled
-        _sched["vpn_host"]    = vpn_host
+        sess["running"]    = True
+        sess["stop_event"] = stop_event
+        sess["sched"]["params"] = {
+            "input_file": input_file, "username": username, "password": password,
+            "sheets_url": sheets_url, "upi_text": upi_text, "up3_text": up3_text,
+        }
+        sess["sched"]["vpn_enabled"] = vpn_enabled
+        sess["sched"]["vpn_host"]    = vpn_host
 
-    # Drain old logs
-    while not _log_queue.empty():
-        try: _log_queue.get_nowait()
+    lq = sess["log_queue"]
+    while not lq.empty():
+        try: lq.get_nowait()
         except Exception: break
 
     def _run():
-        old_stdout = sys.stdout
-        sys.stdout = _QueueWriter()
-        # ── VPN ───────────────────────────────────────────────────────────────
-        if vpn_enabled and vpn_host:
-            if not ensure_vpn(vpn_host, username, password):
-                print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
-                sys.stdout = old_stdout
-                _log_queue.put("\x00DONE\x00")
-                with _lock:
-                    _state["running"] = False
-                _schedule_next()
-                return
-        # ── Scrape ────────────────────────────────────────────────────────────
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        _ThreadLocalStdout.set_queue(lq)
         try:
-            loop.run_until_complete(
-                scrape_fasih.main_with_stop(stop_event, input_file, username, password, sheets_url=sheets_url)
-            )
-        except Exception as exc:
-            print(f"\n[ERROR] {exc}")
+            if vpn_enabled and vpn_host:
+                if not ensure_vpn(vpn_host, username, password):
+                    print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
+                    return
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(
+                    scrape_fasih.main_with_stop(
+                        stop_event, input_file, username, password,
+                        sheets_url=sheets_url, upi_text=upi_text, up3_text=up3_text,
+                    )
+                )
+            except Exception as exc:
+                print(f"\n[ERROR] {exc}")
+            finally:
+                loop.close()
         finally:
-            loop.close()
-            sys.stdout = old_stdout
-            _log_queue.put("\x00DONE\x00")
-            with _lock:
-                _state["running"] = False
-            _schedule_next()  # di dalam finally agar selalu terpanggil
+            _ThreadLocalStdout.clear_queue()
+            lq.put("\x00DONE\x00")
+            with sess["lock"]:
+                sess["running"] = False
+            _schedule_next(sid)
 
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True})
@@ -789,26 +866,36 @@ def run_scraper():
 
 @app.route("/stop", methods=["POST"])
 def stop_scraper():
-    with _lock:
-        _state["stop_event"].set()
+    data = request.get_json() or {}
+    sid  = data.get("session_id", "").strip()
+    sess = _sess(sid)
+    if sess:
+        with sess["lock"]:
+            sess["stop_event"].set()
     return jsonify({"ok": True})
 
 
 @app.route("/stream")
 def stream():
-    """Server-Sent Events — kirim log ke browser secara real-time."""
+    sid  = request.args.get("sid", "").strip()
+    sess = _sess(sid)
+
     def generate():
         yield 'data: {"connected":true}\n\n'
+        if not sess:
+            yield f'data: {json.dumps({"done": True, "stopped": False})}\n\n'
+            return
+        lq = sess["log_queue"]
         while True:
             try:
-                msg = _log_queue.get(timeout=25)
+                msg = lq.get(timeout=25)
                 if msg == "\x00DONE\x00":
-                    stopped = _state["stop_event"].is_set()
+                    stopped = sess["stop_event"].is_set()
                     yield f'data: {json.dumps({"done": True, "stopped": stopped})}\n\n'
                     return
                 yield f'data: {json.dumps({"text": msg})}\n\n'
             except queue.Empty:
-                yield ": ping\n\n"  # keep-alive
+                yield ": ping\n\n"
 
     return Response(
         generate(),
@@ -820,57 +907,75 @@ def stream():
 @app.route("/auto", methods=["POST"])
 def set_auto():
     data = request.get_json() or {}
-    with _lock:
-        _sched["enabled"]       = bool(data.get("enabled", False))
-        _sched["interval_mins"] = max(1, int(data.get("interval_mins", 120)))
-        _sched["vpn_enabled"]   = bool(data.get("vpn_enabled", False))
-        _sched["vpn_host"]      = data.get("vpn_host", "").strip()
-        # Update params jika credentials dikirim dari form
-        input_file = data.get("input_file", "").strip()
-        username   = data.get("username",   "").strip()
-        password   = data.get("password",   "").strip()
+    sid  = data.get("session_id", "").strip()
+    sess = _sess(sid)
+    if sess is None:
+        return jsonify({"error": "Session tidak valid"}), 400
+
+    with sess["lock"]:
+        sched = sess["sched"]
+        sched["enabled"]       = bool(data.get("enabled", False))
+        sched["interval_mins"] = max(1, int(data.get("interval_mins", 120)))
+        sched["vpn_enabled"]   = bool(data.get("vpn_enabled", False))
+        sched["vpn_host"]      = data.get("vpn_host", "").strip()
+        input_file  = data.get("input_file",  "").strip()
+        username    = data.get("username",    "").strip()
+        password    = data.get("password",    "").strip()
+        sheets_url  = data.get("sheets_url",  "").strip()
+        upi_text    = data.get("upi_text",    "").strip()
+        up3_text    = data.get("up3_text",    "").strip()
         if input_file and username and password and os.path.exists(input_file):
-            _sched["params"] = {"input_file": input_file, "username": username, "password": password}
-        if not _sched["enabled"] and _sched["timer"]:
-            _sched["timer"].cancel()
-            _sched["timer"]    = None
-            _sched["next_run"] = None
-    if _sched["enabled"] and _sched["params"] and not _state["running"]:
-        _schedule_next()
-    return _status_json()
+            sched["params"] = {
+                "input_file": input_file, "username": username, "password": password,
+                "sheets_url": sheets_url, "upi_text": upi_text, "up3_text": up3_text,
+            }
+        if not sched["enabled"] and sched["timer"]:
+            sched["timer"].cancel()
+            sched["timer"]    = None
+            sched["next_run"] = None
+
+    if sess["sched"]["enabled"] and sess["sched"]["params"] and not sess["running"]:
+        _schedule_next(sid)
+    return _status_json(sess)
 
 
 @app.route("/status")
 def status():
-    # Watchdog: jika auto-run aktif tapi timer sudah mati dan tidak sedang running, reschedule
-    with _lock:
-        enabled     = _sched["enabled"]
-        params_ok   = bool(_sched["params"])
-        running     = _state["running"]
-        timer       = _sched["timer"]
+    sid  = request.args.get("sid", "").strip()
+    sess = _sess(sid)
+    if sess is None:
+        return jsonify({"running": False, "auto_enabled": False, "interval_mins": 120,
+                        "vpn_enabled": False, "vpn_host": "", "next_run": None, "params_ready": False})
+    # Watchdog: reschedule if timer died
+    with sess["lock"]:
+        sched      = sess["sched"]
+        enabled    = sched["enabled"]
+        params_ok  = bool(sched["params"])
+        running    = sess["running"]
+        timer      = sched["timer"]
         timer_alive = (timer is not None and timer.is_alive())
     if enabled and params_ok and not running and not timer_alive:
-        _schedule_next()
-    return _status_json()
+        _schedule_next(sid)
+    return _status_json(sess)
 
 
-def _status_json():
-    with _lock:
-        nr = _sched["next_run"]
+def _status_json(sess):
+    with sess["lock"]:
+        sched = sess["sched"]
+        nr    = sched["next_run"]
         return jsonify({
-            "running":       _state["running"],
-            "auto_enabled":  _sched["enabled"],
-            "interval_mins": _sched["interval_mins"],
-            "vpn_enabled":   _sched["vpn_enabled"],
-            "vpn_host":      _sched["vpn_host"],
+            "running":       sess["running"],
+            "auto_enabled":  sched["enabled"],
+            "interval_mins": sched["interval_mins"],
+            "vpn_enabled":   sched["vpn_enabled"],
+            "vpn_host":      sched["vpn_host"],
             "next_run":      nr.timestamp() if nr else None,
-            "params_ready":  bool(_sched["params"]),
+            "params_ready":  bool(sched["params"]),
         })
 
 
 @app.route("/download/list")
 def download_list():
-    """Kembalikan daftar file Excel terbaru di folder output/."""
     out_dir = scrape_fasih.OUTPUT_DIR
     if not os.path.isdir(out_dir):
         return jsonify({"files": []})
@@ -880,13 +985,12 @@ def download_list():
             fpath = os.path.join(out_dir, fname)
             files.append({"name": fname, "mtime": os.path.getmtime(fpath)})
     files.sort(key=lambda f: f["mtime"], reverse=True)
-    return jsonify({"files": [f["name"] for f in files[:10]]})  # maks 10 terbaru
+    return jsonify({"files": [f["name"] for f in files[:10]]})
 
 
 @app.route("/download/<path:filename>")
 def download_file(filename):
-    """Unduh satu file Excel dari folder output/."""
-    safe = secure_filename(filename)
+    safe  = secure_filename(filename)
     fpath = os.path.join(scrape_fasih.OUTPUT_DIR, safe)
     if not os.path.isfile(fpath):
         return "File tidak ditemukan", 404
@@ -899,4 +1003,4 @@ if __name__ == "__main__":
     url = "http://localhost:5000"
     print(f"FASIH Scraper Web UI → {url}")
     webbrowser.open(url)
-    app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
