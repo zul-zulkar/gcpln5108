@@ -14,7 +14,7 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 
-from flask import Flask, Response, request, jsonify, render_template_string
+from flask import Flask, Response, request, jsonify, render_template_string, send_file
 from werkzeug.utils import secure_filename
 import scrape_fasih
 
@@ -374,6 +374,13 @@ HTML = r"""<!DOCTYPE html>
   .auto-row input[type=text].vpn-input:focus { border-color:#1a3a5c; }
   #nextRunText { font-size:.82rem; color:#1a7a3c; font-weight:500; }
   #vpnStatus { font-size:.8rem; color:#888; }
+  .dl-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    background:#1a3a5c; color:#fff; padding:7px 14px;
+    border-radius:6px; font-size:.83rem; font-weight:500;
+    text-decoration:none; transition:opacity .15s;
+  }
+  .dl-btn:hover { opacity:.85; }
 </style>
 </head>
 <body>
@@ -434,6 +441,11 @@ HTML = r"""<!DOCTYPE html>
       <button class="clear-btn" onclick="clearLog()">Bersihkan</button>
     </div>
     <div id="log"></div>
+
+    <div id="downloadSection" style="display:none; margin-top:16px;">
+      <div class="log-label" style="margin-bottom:8px;">📥 Unduh Hasil</div>
+      <div id="downloadList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+    </div>
 
   </div>
 </div>
@@ -530,6 +542,7 @@ function startStream() {
       document.getElementById('btnRun').disabled = false;
       document.getElementById('btnStop').disabled = true;
       evtSource.close(); evtSource = null;
+      loadDownloads();
       return;
     }
     if (data.text) appendLog(data.text);
@@ -628,6 +641,18 @@ function syncAutoUI(data) {
     document.getElementById('btnRun').disabled = false;
     document.getElementById('btnStop').disabled = true;
   }
+}
+
+function loadDownloads() {
+  fetch('/download/list').then(r => r.json()).then(data => {
+    const sec  = document.getElementById('downloadSection');
+    const list = document.getElementById('downloadList');
+    if (!data.files || data.files.length === 0) { sec.style.display = 'none'; return; }
+    list.innerHTML = data.files.map(f =>
+      `<a class="dl-btn" href="/download/${encodeURIComponent(f)}" download>⬇ ${f}</a>`
+    ).join('');
+    sec.style.display = 'block';
+  }).catch(() => {});
 }
 
 function saveVpnHost() {
@@ -827,6 +852,31 @@ def _status_json():
             "next_run":      nr.timestamp() if nr else None,
             "params_ready":  bool(_sched["params"]),
         })
+
+
+@app.route("/download/list")
+def download_list():
+    """Kembalikan daftar file Excel terbaru di folder output/."""
+    out_dir = scrape_fasih.OUTPUT_DIR
+    if not os.path.isdir(out_dir):
+        return jsonify({"files": []})
+    files = []
+    for fname in os.listdir(out_dir):
+        if fname.endswith(".xlsx") and fname.startswith("rekap_fasih"):
+            fpath = os.path.join(out_dir, fname)
+            files.append({"name": fname, "mtime": os.path.getmtime(fpath)})
+    files.sort(key=lambda f: f["mtime"], reverse=True)
+    return jsonify({"files": [f["name"] for f in files[:10]]})  # maks 10 terbaru
+
+
+@app.route("/download/<path:filename>")
+def download_file(filename):
+    """Unduh satu file Excel dari folder output/."""
+    safe = secure_filename(filename)
+    fpath = os.path.join(scrape_fasih.OUTPUT_DIR, safe)
+    if not os.path.isfile(fpath):
+        return "File tidak ditemukan", 404
+    return send_file(fpath, as_attachment=True, download_name=safe)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
