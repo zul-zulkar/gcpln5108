@@ -941,6 +941,10 @@ def set_auto():
         sched["vpn_enabled"]   = bool(data.get("vpn_enabled", False))
         sched["vpn_host"]      = data.get("vpn_host", "").strip()
         params = _parse_run_params(data)
+        # Always persist optional fields; only lock in full params when credentials + file are valid
+        for k in ("sheets_url", "upi_text", "up3_text"):
+            if params[k]:
+                sched.setdefault("params", {})[k] = params[k]
         if params["input_file"] and params["username"] and params["password"] and os.path.exists(params["input_file"]):
             sched["params"] = params
         if not sched["enabled"] and sched["timer"]:
