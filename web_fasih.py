@@ -752,6 +752,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
+def _parse_run_params(data: dict) -> dict:
+    """Extract scraper execution params from request JSON dict."""
+    return {
+        "input_file": data.get("input_file", "").strip(),
+        "username":   data.get("username",   "").strip(),
+        "password":   data.get("password",   "").strip(),
+        "sheets_url": data.get("sheets_url", "").strip(),
+        "upi_text":   data.get("upi_text",   "").strip(),
+        "up3_text":   data.get("up3_text",   "").strip(),
+    }
+
+
 @app.route("/")
 def index():
     return render_template_string(HTML)
@@ -804,9 +816,10 @@ def run_scraper():
         if sess["running"]:
             return jsonify({"error": "Scraper sudah berjalan"}), 400
 
-        input_file  = data.get("input_file",  "").strip()
-        username    = data.get("username",    "").strip()
-        password    = data.get("password",    "").strip()
+        params     = _parse_run_params(data)
+        input_file = params["input_file"]
+        username   = params["username"]
+        password   = params["password"]
 
         if not input_file or not os.path.exists(input_file):
             return jsonify({"error": f"File tidak ditemukan: {input_file}"}), 400
@@ -814,18 +827,12 @@ def run_scraper():
             return jsonify({"error": "Username/password kosong"}), 400
 
         vpn_enabled = bool(data.get("vpn_enabled", False))
-        vpn_host    = data.get("vpn_host",    "").strip()
-        sheets_url  = data.get("sheets_url",  "").strip()
-        upi_text    = data.get("upi_text",    "").strip()
-        up3_text    = data.get("up3_text",    "").strip()
+        vpn_host    = data.get("vpn_host", "").strip()
 
         stop_event = threading.Event()
         sess["running"]    = True
         sess["stop_event"] = stop_event
-        sess["sched"]["params"] = {
-            "input_file": input_file, "username": username, "password": password,
-            "sheets_url": sheets_url, "upi_text": upi_text, "up3_text": up3_text,
-        }
+        sess["sched"]["params"]      = params
         sess["sched"]["vpn_enabled"] = vpn_enabled
         sess["sched"]["vpn_host"]    = vpn_host
 
@@ -833,7 +840,7 @@ def run_scraper():
     with lq.mutex:
         lq.queue.clear()
 
-    _launch_scrape_thread(sess, sid, stop_event, lq, sess["sched"]["params"], vpn_enabled, vpn_host)
+    _launch_scrape_thread(sess, sid, stop_event, lq, params, vpn_enabled, vpn_host)
     return jsonify({"ok": True})
 
 
@@ -891,17 +898,9 @@ def set_auto():
         sched["interval_mins"] = max(1, int(data.get("interval_mins", 120)))
         sched["vpn_enabled"]   = bool(data.get("vpn_enabled", False))
         sched["vpn_host"]      = data.get("vpn_host", "").strip()
-        input_file  = data.get("input_file",  "").strip()
-        username    = data.get("username",    "").strip()
-        password    = data.get("password",    "").strip()
-        sheets_url  = data.get("sheets_url",  "").strip()
-        upi_text    = data.get("upi_text",    "").strip()
-        up3_text    = data.get("up3_text",    "").strip()
-        if input_file and username and password and os.path.exists(input_file):
-            sched["params"] = {
-                "input_file": input_file, "username": username, "password": password,
-                "sheets_url": sheets_url, "upi_text": upi_text, "up3_text": up3_text,
-            }
+        params = _parse_run_params(data)
+        if params["input_file"] and params["username"] and params["password"] and os.path.exists(params["input_file"]):
+            sched["params"] = params
         if not sched["enabled"] and sched["timer"]:
             sched["timer"].cancel()
             sched["timer"]    = None

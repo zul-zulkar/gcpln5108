@@ -418,6 +418,15 @@ def save_results(results, label="rekap"):
     return out_path
 
 
+def _post_to_sheets(sheets_url, payload, label, timeout=15):
+    """Kirim payload JSON ke Google Apps Script webhook."""
+    try:
+        resp = requests.post(sheets_url, json=payload, timeout=timeout)
+        print(f"[{label}] HTTP {resp.status_code} → {resp.text[:300]}")
+    except Exception as e:
+        print(f"[{label}] Gagal kirim: {e}")
+
+
 def append_detail_snapshot(all_results, sheets_url=""):
     """Kirim data per pencacah ke Google Sheets (tab Riwayat) via Apps Script webhook."""
     if not sheets_url:
@@ -450,11 +459,7 @@ def append_detail_snapshot(all_results, sheets_url=""):
         "rows":    rows,
     }
 
-    try:
-        resp = requests.post(sheets_url, json=payload, timeout=30)
-        print(f"[DETAIL] HTTP {resp.status_code} → {resp.text[:300]}")
-    except Exception as e:
-        print(f"[DETAIL] Gagal kirim: {e}")
+    _post_to_sheets(sheets_url, payload, "DETAIL", timeout=30)
 
 
 def append_daily_snapshot(all_results, sheets_url=""):
@@ -481,15 +486,11 @@ def append_daily_snapshot(all_results, sheets_url=""):
         "reject_praba": sum_num(praba, "rejected"),
     }
 
-    try:
-        resp = requests.post(sheets_url, json=payload, timeout=15)
-        print(
-            f"[SNAPSHOT] HTTP {resp.status_code} → {resp.text[:300]}\n"
-            f"  {payload['tanggal']} {payload['waktu']}  "
-            f"Pasca submit={payload['submit_pasca']}  Praba submit={payload['submit_praba']}"
-        )
-    except Exception as e:
-        print(f"[SNAPSHOT] Gagal kirim: {e}")
+    _post_to_sheets(sheets_url, payload, "SNAPSHOT")
+    print(
+        f"  {payload['tanggal']} {payload['waktu']}  "
+        f"Pasca submit={payload['submit_pasca']}  Praba submit={payload['submit_praba']}"
+    )
 
 
 async def main():
