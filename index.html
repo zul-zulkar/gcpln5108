@@ -576,9 +576,17 @@
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; max-width:900px;">
     <div style="flex:1; min-width:260px;">
       <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
-        URL tab <strong style="color:#fff">Harian</strong> (buka tab tsb di Sheets, copy URL-nya)
+        URL tab <strong style="color:#fff">Utama</strong> (buka tab tsb di Sheets, copy URL-nya)
       </label>
-      <input id="cfgUrlHarian" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
+      <input id="cfgUrlUtama" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
+        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
+               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
+        URL tab <strong style="color:#fff">Ringkasan</strong>
+      </label>
+      <input id="cfgUrlRingkasan" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…"
         style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
                background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
     </div>
@@ -610,7 +618,7 @@
       <p>Memuat data dari Google Sheets…</p>
     </div>
   </div>
-  <div id="harianSection"></div>
+  <div id="ringkasanSection"></div>
   <div id="riwayatSection"></div>
 </main>
 
@@ -619,9 +627,10 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const _DEFAULTS = { SHEET_ID: '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs', GID_HARIAN: '187552406', GID_RIWAYAT: '1075204205' };
+const _DEFAULTS = { SHEET_ID: '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs', GID_UTAMA: '0', GID_RINGKASAN: '187552406', GID_RIWAYAT: '1075204205' };
 let SHEET_ID  = _DEFAULTS.SHEET_ID;
-let GID_HARIAN  = _DEFAULTS.GID_HARIAN;
+let GID_UTAMA = _DEFAULTS.GID_UTAMA;
+let GID_RINGKASAN  = _DEFAULTS.GID_RINGKASAN;
 let GID_RIWAYAT = _DEFAULTS.GID_RIWAYAT;
 
 function _parseSheetId(url) {
@@ -634,22 +643,23 @@ function _parseGid(url) {
 }
 function _getSavedConfig() {
   return {
-    sid: localStorage.getItem('cfg_sheet_id')   || '',
-    gh:  localStorage.getItem('cfg_gid_harian') || '',
-    gr:  localStorage.getItem('cfg_gid_riwayat')|| '',
+    sid: localStorage.getItem('cfg_sheet_id')    || '',
+    gu:  localStorage.getItem('cfg_gid_utama')   || '',
+    gh:  localStorage.getItem('cfg_gid_ringkasan') || '',
+    gr:  localStorage.getItem('cfg_gid_riwayat') || '',
   };
 }
 function _loadSheetConfig() {
-  const { sid, gh, gr } = _getSavedConfig();
-  if (sid) SHEET_ID    = sid;
-  if (gh)  GID_HARIAN  = gh;
-  if (gr)  GID_RIWAYAT = gr;
+  const { sid, gu, gh, gr } = _getSavedConfig();
+  if (sid) SHEET_ID     = sid;
+  if (gu)  GID_UTAMA    = gu;
+  if (gh)  GID_RINGKASAN = gh;
+  if (gr)  GID_RIWAYAT  = gr;
 }
-// Col 0=ULP, 1=No, 2=Nama(pasca), 3=Email(pasca), 4=Open(pasca), 5=Submit(pasca), 6=Reject(pasca)
-//           7=Nama(praba), 8=Email(praba), 9=Open(praba), 10=Submit(praba), 11=Reject(praba)
-const GVZ_BASE   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=0&range=A3:L500&gid=0`;
-// Harian tab: Tanggal | Waktu | Open_P | Submit_P | Reject_P | Open_R | Submit_R | Reject_R
-const GVZ_HARIAN   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetHarianCB&headers=1&gid=${GID_HARIAN}&t=${Date.now()}`;
+// Tab Utama = data Riwayat difilter tanggal hari ini (header-based column mapping)
+const GVZ_BASE   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=1&gid=${GID_RIWAYAT}&t=${Date.now()}`;
+// Ringkasan tab: Tanggal | Waktu | Open_P | Submit_P | Reject_P | Open_R | Submit_R | Reject_R
+const GVZ_RINGKASAN   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRingkasanCB&headers=1&gid=${GID_RINGKASAN}&t=${Date.now()}`;
 const GVZ_RIWAYAT  = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRiwayatCB&headers=1&gid=${GID_RIWAYAT}&t=${Date.now()}`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -661,19 +671,19 @@ let sortCol    = 'no';
 let sortDir    = 'asc';
 let chartPasca = null;
 let chartPraba = null;
-let harianData      = [];
-let chartHarian     = null;
+let ringkasanData      = [];
+let chartRingkasan     = null;
 let riwayatData     = [];   // semua baris dari tab Riwayat
 let chartRiwayat    = null;
 let riwayatSelectedEmails = new Set(['__all__']); // multi-select state
 let riwayatMsQuery    = '';
 let riwayatMetric     = 'submit_pasca';
-let harianFilter      = { from: '', to: '' };
+let ringkasanFilter      = { from: '', to: '' };
 let riwayatFilter     = { from: '', to: '' };
-let harianActiveQuick  = 0;
+let ringkasanActiveQuick  = 0;
 let riwayatActiveQuick = 0;
-let harianTblSortCol   = 'tanggal';
-let harianTblSortDir   = 'desc';
+let ringkasanTblSortCol   = 'tanggal';
+let ringkasanTblSortDir   = 'desc';
 let riwayatTblSortCol  = 'tanggal';
 let riwayatTblSortDir  = 'desc';
 let _msOutsideListenerAttached = false;
@@ -692,7 +702,7 @@ function loadData() {
 
   const script = document.createElement('script');
   script.id  = '_gsheet_script';
-  script.src = GVZ_BASE + '&t=' + Date.now();
+  script.src = GVZ_BASE();
   script.onerror = () => {
     document.getElementById('errBox').innerHTML =
       `<div class="err-box">❌ Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
@@ -709,26 +719,45 @@ function _gsheetCB(data) {
   const icon = document.getElementById('refreshIcon');
 
   try {
-    const rows = data.table.rows;
+    const cols = data.table.cols || [];
+    const rows = data.table.rows || [];
+
+    // Build column-name → index map (case-insensitive)
+    const colIdx = {};
+    cols.forEach((c, i) => { if (c.label) colIdx[c.label.trim().toLowerCase()] = i; });
+    const ci = name => colIdx[name.toLowerCase()] ?? -1;
+
+    // Today in DD/MM/YYYY (same format scraper stores)
+    const t = new Date();
+    const todayStr = `${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
+
     allData = [];
-    rows.forEach((row, i) => {
+    let seq = 1;
+    rows.forEach(row => {
       const c  = row.c || [];
-      const cv = idx => (c[idx] && c[idx].v !== null && c[idx].v !== undefined) ? c[idx].v : null;
-      const nama = cv(2) || cv(7);
+      const cv = idx => idx >= 0 && c[idx] && c[idx].v !== null && c[idx].v !== undefined ? c[idx].v : null;
+
+      // Filter: hanya baris hari ini
+      const tglStr = _parseGvizDate(c[ci('tanggal')]);
+      if (tglStr !== todayStr) return;
+
+      const nama  = c[ci('nama')]  ? String(c[ci('nama')].v  || '').trim() : '';
+      const email = c[ci('email')] ? String(c[ci('email')].v || '').trim() : '';
       if (!nama) return;
+
       allData.push({
-        ulp:          cv(0) ? String(cv(0)).trim() : '',
-        no:           typeof cv(1) === 'number' ? cv(1) : (i + 1),
-        nama_pasca:   cv(2)  || '',
-        email_pasca:  cv(3)  || '',
-        open_pasca:   cv(4),
-        submit_pasca: cv(5),
-        reject_pasca: cv(6),
-        nama_praba:   cv(7)  || '',
-        email_praba:  cv(8)  || '',
-        open_praba:   cv(9),
-        submit_praba: cv(10),
-        reject_praba: cv(11),
+        ulp:          '',
+        no:           seq++,
+        nama_pasca:   nama,
+        email_pasca:  email,
+        open_pasca:   cv(ci('open pasca')),
+        submit_pasca: cv(ci('submit pasca')),
+        reject_pasca: cv(ci('reject pasca')),
+        nama_praba:   nama,
+        email_praba:  email,
+        open_praba:   cv(ci('open praba')),
+        submit_praba: cv(ci('submit praba')),
+        reject_praba: cv(ci('reject praba')),
       });
     });
 
@@ -751,8 +780,8 @@ const n = v => (typeof v === 'number' ? v : 0);
 function _refreshTimestamp() {
   const el = document.getElementById('lastUpdated');
   if (!el) return;
-  if (harianData.length) {
-    const last = harianData[harianData.length - 1];
+  if (ringkasanData.length) {
+    const last = ringkasanData[ringkasanData.length - 1];
     const ts = last.waktu ? `${last.tanggal} ${last.waktu}` : last.tanggal;
     el.textContent = `Scraping terakhir: ${ts}`;
   } else {
@@ -1138,18 +1167,18 @@ function renderOneChart(sfx) {
   else         chartPraba = inst;
 }
 
-// ── Laporan Harian ────────────────────────────────────────────────────────────
-function loadHarian() {
-  if (!GID_HARIAN) {
-    document.getElementById('harianSection').innerHTML =
-      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Tren Harian: isi <code>GID_HARIAN</code> di kode dashboard setelah tab "Harian" dibuat.</p>';
+// ── Laporan Ringkasan ────────────────────────────────────────────────────────────
+function loadRingkasan() {
+  if (!GID_RINGKASAN) {
+    document.getElementById('ringkasanSection').innerHTML =
+      '<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem 0">Tren Ringkasan: isi <code>GID_RINGKASAN</code> di kode dashboard setelah tab "Ringkasan" dibuat.</p>';
     return;
   }
-  const old = document.getElementById('_gsheet_harian_script');
+  const old = document.getElementById('_gsheet_ringkasan_script');
   if (old) old.remove();
   const s = document.createElement('script');
-  s.id  = '_gsheet_harian_script';
-  s.src = GVZ_HARIAN();
+  s.id  = '_gsheet_ringkasan_script';
+  s.src = GVZ_RINGKASAN();
   document.head.appendChild(s);
 }
 
@@ -1181,14 +1210,14 @@ function _parseGvizTime(cell) {
   return String(v).slice(0, 5);
 }
 
-function _gsheetHarianCB(data) {
+function _gsheetRingkasanCB(data) {
   try {
-    harianData = [];
+    ringkasanData = [];
     (data.table.rows || []).forEach(row => {
       const c  = row.c || [];
       const cv = i => (c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
       if (!cv(0)) return;
-      harianData.push({
+      ringkasanData.push({
         tanggal:      _parseGvizDate(c[0]),
         waktu:        _parseGvizTime(c[1]),
         open_pasca:   cv(2),
@@ -1200,8 +1229,8 @@ function _gsheetHarianCB(data) {
       });
     });
     _refreshTimestamp();
-    renderHarian();
-  } catch(e) { console.error('Harian CB:', e); }
+    renderRingkasan();
+  } catch(e) { console.error('Ringkasan CB:', e); }
 }
 
 // ── Table sort helpers ─────────────────────────────────────────────────────────
@@ -1219,10 +1248,10 @@ function _sortArr(arr, col, dir) {
   });
 }
 
-function sortHarianTbl(col) {
-  harianTblSortDir = harianTblSortCol === col && harianTblSortDir === 'desc' ? 'asc' : 'desc';
-  harianTblSortCol = col;
-  renderHarian();
+function sortRingkasanTbl(col) {
+  ringkasanTblSortDir = ringkasanTblSortCol === col && ringkasanTblSortDir === 'desc' ? 'asc' : 'desc';
+  ringkasanTblSortCol = col;
+  renderRingkasan();
 }
 
 function sortRiwayatTbl(col) {
@@ -1239,15 +1268,15 @@ function _syncRiwayatTblHeaders() {
   });
 }
 
-function renderHarian() {
-  const sec = document.getElementById('harianSection');
-  if (!harianData.length) {
-    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>📅 Tren Harian</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data harian.</p></div>';
+function renderRingkasan() {
+  const sec = document.getElementById('ringkasanSection');
+  if (!ringkasanData.length) {
+    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>📅 Tren Ringkasan</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data ringkasan.</p></div>';
     return;
   }
 
   // Apply date filter
-  const filt        = applyDateFilter(harianData, harianFilter);
+  const filt        = applyDateFilter(ringkasanData, ringkasanFilter);
   // Chart: newest first (left)
   const display     = [...filt].reverse();
   const labels      = display.map(d => d.tanggal);
@@ -1257,8 +1286,8 @@ function renderHarian() {
   const openPraba   = display.map(d => n(d.open_praba));
 
   // Table: sortable
-  const arrH    = col => harianTblSortCol === col ? (harianTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
-  const tblRows = _sortArr(filt, harianTblSortCol, harianTblSortDir).map(d => `
+  const arrH    = col => ringkasanTblSortCol === col ? (ringkasanTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  const tblRows = _sortArr(filt, ringkasanTblSortCol, ringkasanTblSortDir).map(d => `
     <tr>
       <td>${d.tanggal}</td>
       <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
@@ -1271,46 +1300,46 @@ function renderHarian() {
 
   const minWH = Math.max(480, display.length * 90);
   const mkQ   = (d, lbl) =>
-    `<button class="dfq-btn${harianActiveQuick === d ? ' active' : ''}" onclick="setHarianQuickFilter(${d})">${lbl}</button>`;
+    `<button class="dfq-btn${ringkasanActiveQuick === d ? ' active' : ''}" onclick="setRingkasanQuickFilter(${d})">${lbl}</button>`;
 
   sec.innerHTML = `
     <div class="chart-wrap" style="margin-top:1.25rem">
-      <h3>📅 Tren Harian</h3>
+      <h3>📅 Tren Ringkasan</h3>
       <div class="filter-row">
         <div class="date-filter-bar">
           ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
           <span class="dfq-sep">|</span>
-          <input type="date" class="dfq-input" id="harianFrom" value="${harianFilter.from}"
-            onchange="setHarianDateRange(this.value,document.getElementById('harianTo').value)">
+          <input type="date" class="dfq-input" id="ringkasanFrom" value="${ringkasanFilter.from}"
+            onchange="setRingkasanDateRange(this.value,document.getElementById('ringkasanTo').value)">
           <span class="dfq-sep">–</span>
-          <input type="date" class="dfq-input" id="harianTo" value="${harianFilter.to}"
-            onchange="setHarianDateRange(document.getElementById('harianFrom').value,this.value)">
+          <input type="date" class="dfq-input" id="ringkasanTo" value="${ringkasanFilter.to}"
+            onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)">
         </div>
-        <button class="dfq-btn" onclick="resetHarianFilter()" title="Reset filter tanggal" style="margin-left:.25rem">↺ Reset</button>
+        <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Reset filter tanggal" style="margin-left:.25rem">↺ Reset</button>
       </div>
       <div class="chart-scroll">
         <div class="chart-inner" style="min-width:${minWH}px;width:100%;height:300px">
-          <canvas id="chartHarian"></canvas>
+          <canvas id="chartRingkasan"></canvas>
         </div>
       </div>
     </div>
     <div class="tbl-card" style="margin-bottom:1.25rem">
-      <div class="tbl-header"><h2>Riwayat Harian</h2></div>
+      <div class="tbl-header"><h2>Riwayat Ringkasan</h2></div>
       <div class="tbl-scroll" style="max-height:280px">
         <table>
           <thead>
             <tr>
-              <th rowspan="2" onclick="sortHarianTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal${arrH('tanggal')}</th>
+              <th rowspan="2" onclick="sortRingkasanTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal${arrH('tanggal')}</th>
               <th colspan="3" class="th-pasca th-span">Pascabayar</th>
               <th colspan="3" class="th-praba th-span">Prabayar</th>
             </tr>
             <tr>
-              <th class="th-pasca" onclick="sortHarianTbl('open_pasca')" style="cursor:pointer">Open${arrH('open_pasca')}</th>
-              <th class="th-pasca" onclick="sortHarianTbl('submit_pasca')" style="cursor:pointer">Submit${arrH('submit_pasca')}</th>
-              <th class="th-pasca" onclick="sortHarianTbl('reject_pasca')" style="cursor:pointer">Reject${arrH('reject_pasca')}</th>
-              <th class="th-praba" onclick="sortHarianTbl('open_praba')" style="cursor:pointer">Open${arrH('open_praba')}</th>
-              <th class="th-praba" onclick="sortHarianTbl('submit_praba')" style="cursor:pointer">Submit${arrH('submit_praba')}</th>
-              <th class="th-praba" onclick="sortHarianTbl('reject_praba')" style="cursor:pointer">Reject${arrH('reject_praba')}</th>
+              <th class="th-pasca" onclick="sortRingkasanTbl('open_pasca')" style="cursor:pointer">Open${arrH('open_pasca')}</th>
+              <th class="th-pasca" onclick="sortRingkasanTbl('submit_pasca')" style="cursor:pointer">Submit${arrH('submit_pasca')}</th>
+              <th class="th-pasca" onclick="sortRingkasanTbl('reject_pasca')" style="cursor:pointer">Reject${arrH('reject_pasca')}</th>
+              <th class="th-praba" onclick="sortRingkasanTbl('open_praba')" style="cursor:pointer">Open${arrH('open_praba')}</th>
+              <th class="th-praba" onclick="sortRingkasanTbl('submit_praba')" style="cursor:pointer">Submit${arrH('submit_praba')}</th>
+              <th class="th-praba" onclick="sortRingkasanTbl('reject_praba')" style="cursor:pointer">Reject${arrH('reject_praba')}</th>
             </tr>
           </thead>
           <tbody>${tblRows || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>'}</tbody>
@@ -1318,8 +1347,8 @@ function renderHarian() {
       </div>
     </div>`;
 
-  if (chartHarian) { chartHarian.destroy(); chartHarian = null; }
-  chartHarian = new Chart(document.getElementById('chartHarian'), {
+  if (chartRingkasan) { chartRingkasan.destroy(); chartRingkasan = null; }
+  chartRingkasan = new Chart(document.getElementById('chartRingkasan'), {
     type: 'line',
     data: {
       labels,
@@ -1345,7 +1374,7 @@ function renderHarian() {
   });
 }
 
-// ── Progres Harian per Pencacah ───────────────────────────────────────────────
+// ── Progres Ringkasan per Pencacah ───────────────────────────────────────────────
 function loadRiwayat() {
   if (!GID_RIWAYAT) {
     document.getElementById('riwayatSection').innerHTML =
@@ -1388,7 +1417,7 @@ function _gsheetRiwayatCB(data) {
 function renderRiwayat() {
   const sec = document.getElementById('riwayatSection');
   if (!riwayatData.length) {
-    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>👤 Progres Harian per Pencacah</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data riwayat per pencacah.</p></div>';
+    sec.innerHTML = '<div class="chart-wrap" style="margin-top:1.25rem"><h3>👤 Progres Ringkasan per Pencacah</h3><p style="color:var(--muted);font-size:.85rem;padding:.5rem 0">Belum ada data riwayat per pencacah.</p></div>';
     return;
   }
 
@@ -1406,7 +1435,7 @@ function renderRiwayat() {
   sec.innerHTML = `
     <div class="chart-wrap" style="margin-top:1.25rem">
       <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-        👤 Progres Harian per Pencacah
+        👤 Progres Ringkasan per Pencacah
         <select onchange="riwayatMetric=this.value;refreshRiwayatViz()"
           style="font-size:.82rem;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer">
           ${metricOptHtml}
@@ -1478,10 +1507,10 @@ function renderRiwayat() {
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
-function resetHarianFilter() {
-  harianFilter      = { from: '', to: '' };
-  harianActiveQuick = 0;
-  renderHarian();
+function resetRingkasanFilter() {
+  ringkasanFilter      = { from: '', to: '' };
+  ringkasanActiveQuick = 0;
+  renderRingkasan();
 }
 
 function resetRiwayatFilter() {
@@ -1504,18 +1533,18 @@ function _quickDate(days) {
   return _localISO(d);
 }
 
-function setHarianQuickFilter(days) {
-  harianActiveQuick = days;
-  harianFilter = days === 0
+function setRingkasanQuickFilter(days) {
+  ringkasanActiveQuick = days;
+  ringkasanFilter = days === 0
     ? { from: '', to: '' }
     : { from: _quickDate(days), to: _localISO(new Date()) };
-  renderHarian();
+  renderRingkasan();
 }
 
-function setHarianDateRange(from, to) {
-  harianActiveQuick = -1;
-  harianFilter = { from, to };
-  renderHarian();
+function setRingkasanDateRange(from, to) {
+  ringkasanActiveQuick = -1;
+  ringkasanFilter = { from, to };
+  renderRingkasan();
 }
 
 function setRiwayatQuickFilter(days) {
@@ -1754,7 +1783,7 @@ function toggleTheme() {
   _applyChartDefaults();
   // Re-render charts with new colors
   if (allData.length)    render();
-  if (harianData.length) renderHarian();
+  if (ringkasanData.length) renderRingkasan();
   if (riwayatData.length) renderRiwayat();
 }
 
@@ -1767,7 +1796,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
     _applyThemeIcon();
     _applyChartDefaults();
     if (allData.length)    render();
-    if (harianData.length) renderHarian();
+    if (ringkasanData.length) renderRingkasan();
     if (riwayatData.length) renderRiwayat();
   }
 });
@@ -1780,47 +1809,55 @@ function toggleSettings() {
   if (open) _populateSettingsInputs();
 }
 function _populateSettingsInputs() {
-  const { sid, gh, gr } = _getSavedConfig();
+  const { sid, gu, gh, gr } = _getSavedConfig();
+  if (sid && gu)
+    document.getElementById('cfgUrlUtama').value =
+      `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gu}`;
   if (sid && gh)
-    document.getElementById('cfgUrlHarian').value =
+    document.getElementById('cfgUrlRingkasan').value =
       `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gh}`;
   if (sid && gr)
     document.getElementById('cfgUrlRiwayat').value =
       `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gr}`;
 }
 function saveSheetConfig() {
-  const urlH = document.getElementById('cfgUrlHarian').value.trim();
+  const urlU = document.getElementById('cfgUrlUtama').value.trim();
+  const urlH = document.getElementById('cfgUrlRingkasan').value.trim();
   const urlR = document.getElementById('cfgUrlRiwayat').value.trim();
   const msg  = document.getElementById('cfgMsg');
-  const sid  = _parseSheetId(urlH) || _parseSheetId(urlR);
+  const sid  = _parseSheetId(urlU) || _parseSheetId(urlH) || _parseSheetId(urlR);
+  const gidU = urlU ? _parseGid(urlU) : GID_UTAMA;
   const gidH = _parseGid(urlH);
   const gidR = _parseGid(urlR);
   if (!sid) { msg.textContent = '⚠️ URL tidak valid — pastikan URL berasal dari Google Sheets.'; return; }
-  localStorage.setItem('cfg_sheet_id',    sid);
-  localStorage.setItem('cfg_gid_harian',  gidH);
-  localStorage.setItem('cfg_gid_riwayat', gidR);
-  SHEET_ID = sid; GID_HARIAN = gidH; GID_RIWAYAT = gidR;
-  msg.textContent = `✅ Disimpan — Sheet ID: ${sid.slice(0,14)}… | Harian: ${gidH} | Riwayat: ${gidR}`;
-  loadData(); loadHarian(); loadRiwayat();
+  localStorage.setItem('cfg_sheet_id',     sid);
+  localStorage.setItem('cfg_gid_utama',    gidU);
+  localStorage.setItem('cfg_gid_ringkasan', gidH);
+  localStorage.setItem('cfg_gid_riwayat',  gidR);
+  SHEET_ID = sid; GID_UTAMA = gidU; GID_RINGKASAN = gidH; GID_RIWAYAT = gidR;
+  msg.textContent = `✅ Disimpan — Sheet ID: ${sid.slice(0,14)}… | Utama: ${gidU} | Ringkasan: ${gidH} | Riwayat: ${gidR}`;
+  loadData(); loadRingkasan(); loadRiwayat();
 }
 function resetSheetConfig() {
   localStorage.removeItem('cfg_sheet_id');
-  localStorage.removeItem('cfg_gid_harian');
+  localStorage.removeItem('cfg_gid_utama');
+  localStorage.removeItem('cfg_gid_ringkasan');
   localStorage.removeItem('cfg_gid_riwayat');
-  document.getElementById('cfgUrlHarian').value  = '';
-  document.getElementById('cfgUrlRiwayat').value = '';
-  ({ SHEET_ID, GID_HARIAN, GID_RIWAYAT } = _DEFAULTS);
+  document.getElementById('cfgUrlUtama').value    = '';
+  document.getElementById('cfgUrlRingkasan').value = '';
+  document.getElementById('cfgUrlRiwayat').value  = '';
+  ({ SHEET_ID, GID_UTAMA, GID_RINGKASAN, GID_RIWAYAT } = _DEFAULTS);
   document.getElementById('cfgMsg').textContent = '↺ Kembali ke sumber data default.';
-  loadData(); loadHarian(); loadRiwayat();
+  loadData(); loadRingkasan(); loadRiwayat();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 _loadSheetConfig();
 setInterval(loadData,    5 * 60 * 1000);
-setInterval(loadHarian,  5 * 60 * 1000);
+setInterval(loadRingkasan,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);
 loadData();
-loadHarian();
+loadRingkasan();
 loadRiwayat();
 </script>
 </body>
