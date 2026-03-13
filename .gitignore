@@ -1,0 +1,23 @@
+# Data — jangan di-commit
+input/*.xlsx
+input/*.xls
+output/
+uploads/
+
+# Build
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
