@@ -15,6 +15,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
+import openpyxl
 from flask import Flask, Response, request, jsonify, render_template_string, send_file
 from werkzeug.utils import secure_filename
 import scrape_fasih
@@ -122,15 +123,22 @@ def _auto_run(sid: str):
         if not params:
             return
         lq = sess["log_queue"]
-        while not lq.empty():
-            try: lq.get_nowait()
-            except Exception: break
+        with lq.mutex:
+            lq.queue.clear()
         stop_event = threading.Event()
         sess["running"]    = True
         sess["stop_event"] = stop_event
 
     lq.put(f"\n[AUTO] ▶ Jadwal otomatis dimulai ({datetime.now().strftime('%H:%M:%S')})…\n")
+    _launch_scrape_thread(sess, sid, stop_event, lq, params, vpn_enabled, vpn_host)
 
+
+def _launch_scrape_thread(sess, sid, stop_event, lq, params, vpn_enabled, vpn_host):
+    """Shared helper: runs scrape_fasih.main_with_stop in a daemon thread,
+    routing stdout to lq, and marking the session not-running when done."""
+    username   = params["username"]
+    password   = params["password"]
+    input_file = params["input_file"]
     sheets_url = params.get("sheets_url", "")
     upi_text   = params.get("upi_text", "")
     up3_text   = params.get("up3_text", "")
@@ -139,7 +147,7 @@ def _auto_run(sid: str):
         _ThreadLocalStdout.set_queue(lq)
         try:
             if vpn_enabled and vpn_host:
-                if not ensure_vpn(vpn_host, params["username"], params["password"]):
+                if not ensure_vpn(vpn_host, username, password):
                     print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
                     return
             loop = asyncio.new_event_loop()
@@ -147,14 +155,8 @@ def _auto_run(sid: str):
             try:
                 loop.run_until_complete(
                     scrape_fasih.main_with_stop(
-                        stop_event,
-                        params["input_file"],
-                        params["username"],
-                        params["password"],
-                        headless=False,
-                        sheets_url=sheets_url,
-                        upi_text=upi_text,
-                        up3_text=up3_text,
+                        stop_event, input_file, username, password,
+                        sheets_url=sheets_url, upi_text=upi_text, up3_text=up3_text,
                     )
                 )
             except Exception as exc:
@@ -780,7 +782,6 @@ def upload_file():
     f.save(save_path)
 
     try:
-        import openpyxl
         wb = openpyxl.load_workbook(save_path, read_only=True)
         ws = wb.active
         rows = sum(1 for row in ws.iter_rows(min_row=2, values_only=True) if row[0])
@@ -829,38 +830,10 @@ def run_scraper():
         sess["sched"]["vpn_host"]    = vpn_host
 
     lq = sess["log_queue"]
-    while not lq.empty():
-        try: lq.get_nowait()
-        except Exception: break
+    with lq.mutex:
+        lq.queue.clear()
 
-    def _run():
-        _ThreadLocalStdout.set_queue(lq)
-        try:
-            if vpn_enabled and vpn_host:
-                if not ensure_vpn(vpn_host, username, password):
-                    print("[VPN] Scraping dibatalkan karena VPN tidak terhubung.")
-                    return
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(
-                    scrape_fasih.main_with_stop(
-                        stop_event, input_file, username, password,
-                        sheets_url=sheets_url, upi_text=upi_text, up3_text=up3_text,
-                    )
-                )
-            except Exception as exc:
-                print(f"\n[ERROR] {exc}")
-            finally:
-                loop.close()
-        finally:
-            _ThreadLocalStdout.clear_queue()
-            lq.put("\x00DONE\x00")
-            with sess["lock"]:
-                sess["running"] = False
-            _schedule_next(sid)
-
-    threading.Thread(target=_run, daemon=True).start()
+    _launch_scrape_thread(sess, sid, stop_event, lq, sess["sched"]["params"], vpn_enabled, vpn_host)
     return jsonify({"ok": True})
 
 
