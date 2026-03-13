@@ -632,10 +632,15 @@ function _parseGid(url) {
   const m = url.match(/[?&#]gid=(\d+)/);
   return m ? m[1] : '0';
 }
+function _getSavedConfig() {
+  return {
+    sid: localStorage.getItem('cfg_sheet_id')   || '',
+    gh:  localStorage.getItem('cfg_gid_harian') || '',
+    gr:  localStorage.getItem('cfg_gid_riwayat')|| '',
+  };
+}
 function _loadSheetConfig() {
-  const sid = localStorage.getItem('cfg_sheet_id');
-  const gh  = localStorage.getItem('cfg_gid_harian');
-  const gr  = localStorage.getItem('cfg_gid_riwayat');
+  const { sid, gh, gr } = _getSavedConfig();
   if (sid) SHEET_ID    = sid;
   if (gh)  GID_HARIAN  = gh;
   if (gr)  GID_RIWAYAT = gr;
@@ -1775,10 +1780,7 @@ function toggleSettings() {
   if (open) _populateSettingsInputs();
 }
 function _populateSettingsInputs() {
-  // Show current values in the inputs so user can see what's active
-  const sid = localStorage.getItem('cfg_sheet_id')  || '';
-  const gh  = localStorage.getItem('cfg_gid_harian') || '';
-  const gr  = localStorage.getItem('cfg_gid_riwayat')|| '';
+  const { sid, gh, gr } = _getSavedConfig();
   if (sid && gh)
     document.getElementById('cfgUrlHarian').value =
       `https://docs.google.com/spreadsheets/d/${sid}/edit#gid=${gh}`;
