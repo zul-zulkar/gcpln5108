@@ -58,13 +58,17 @@ _sessions: dict = {}
 _sessions_lock = threading.Lock()
 
 
+_SESSION_TTL = 24 * 3600  # seconds before an idle session is evicted
+
+
 def _new_session() -> str:
     sid = str(uuid.uuid4())
     sess = {
-        "lock":       threading.Lock(),
-        "running":    False,
-        "stop_event": threading.Event(),
-        "log_queue":  queue.Queue(maxsize=5000),
+        "lock":        threading.Lock(),
+        "running":     False,
+        "stop_event":  threading.Event(),
+        "log_queue":   queue.Queue(maxsize=5000),
+        "last_active": time.time(),
         "sched": {
             "enabled":       False,
             "interval_mins": 120,
@@ -82,7 +86,27 @@ def _new_session() -> str:
 
 def _sess(sid: str):
     with _sessions_lock:
-        return _sessions.get(sid)
+        sess = _sessions.get(sid)
+        if sess:
+            sess["last_active"] = time.time()
+        return sess
+
+
+def _evict_stale_sessions():
+    """Remove sessions idle longer than _SESSION_TTL. Runs in a background thread."""
+    cutoff = time.time() - _SESSION_TTL
+    with _sessions_lock:
+        stale = [sid for sid, s in _sessions.items()
+                 if not s.get("running") and s.get("last_active", 0) < cutoff]
+        for sid in stale:
+            sched = _sessions[sid].get("sched", {})
+            t = sched.get("timer")
+            if t:
+                t.cancel()
+            del _sessions[sid]
+    t = threading.Timer(_SESSION_TTL / 2, _evict_stale_sessions)
+    t.daemon = True
+    t.start()
 
 
 # ── Auto-scheduler (per session) ────────────────────────────────────────────────
@@ -990,6 +1014,7 @@ def download_file(filename):
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import webbrowser
+    _evict_stale_sessions()  # start background eviction loop
     url = "http://localhost:5000"
     print(f"FASIH Scraper Web UI → {url}")
     webbrowser.open(url)
