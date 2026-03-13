@@ -14,7 +14,10 @@ class TextRedirector:
         self.widget = widget
 
     def write(self, text):
-        self.widget.after(0, self._insert, text)
+        try:
+            self.widget.after(0, self._insert, text)
+        except Exception:
+            pass
 
     def _insert(self, text):
         self.widget.configure(state="normal")
@@ -30,7 +33,7 @@ class FasihScraperGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("FASIH Scraper — BPS")
-        self.root.geometry("750x660")
+        self.root.geometry("750x620")
         self.root.resizable(True, True)
 
         self._stop_event = threading.Event()
@@ -74,30 +77,26 @@ class FasihScraperGUI:
             command=self._toggle_pass,
         ).grid(row=2, column=2, padx=2)
 
-        # ── UPI Text ─────────────────────────────────────────────────────────
-        ttk.Label(main, text="UPI:").grid(row=3, column=0, sticky="w", pady=5)
+        # ── UPI + UP3 (same row) ─────────────────────────────────────────────
+        upi_up3_frame = ttk.Frame(main)
+        upi_up3_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=6, pady=5)
+        ttk.Label(upi_up3_frame, text="UPI:").pack(side=tk.LEFT)
         self.upi_var = tk.StringVar(value="[55]")
-        ttk.Entry(main, textvariable=self.upi_var, width=20).grid(
-            row=3, column=1, sticky="w", padx=6
-        )
-
-        # ── UP3 Text ─────────────────────────────────────────────────────────
-        ttk.Label(main, text="UP3:").grid(row=4, column=0, sticky="w", pady=5)
+        ttk.Entry(upi_up3_frame, textvariable=self.upi_var, width=12).pack(side=tk.LEFT, padx=(4, 16))
+        ttk.Label(upi_up3_frame, text="UP3:").pack(side=tk.LEFT)
         self.up3_var = tk.StringVar(value="[55UTR]")
-        ttk.Entry(main, textvariable=self.up3_var, width=20).grid(
-            row=4, column=1, sticky="w", padx=6
-        )
+        ttk.Entry(upi_up3_frame, textvariable=self.up3_var, width=12).pack(side=tk.LEFT, padx=(4, 0))
 
         # ── Sheets URL ───────────────────────────────────────────────────────
-        ttk.Label(main, text="Sheets URL:").grid(row=5, column=0, sticky="w", pady=5)
+        ttk.Label(main, text="Sheets URL:").grid(row=4, column=0, sticky="w", pady=5)
         self.sheets_var = tk.StringVar()
         ttk.Entry(main, textvariable=self.sheets_var, width=52).grid(
-            row=5, column=1, sticky="ew", padx=6, columnspan=2
+            row=4, column=1, sticky="ew", padx=6, columnspan=2
         )
 
         # ── Tombol Run / Stop ────────────────────────────────────────────────
         btn_frame = ttk.Frame(main)
-        btn_frame.grid(row=6, column=0, columnspan=3, pady=10, sticky="w")
+        btn_frame.grid(row=5, column=0, columnspan=3, pady=10, sticky="w")
 
         self.run_btn = ttk.Button(btn_frame, text="▶  Run", command=self._run, width=12)
         self.run_btn.pack(side=tk.LEFT, padx=(0, 8))
@@ -113,14 +112,16 @@ class FasihScraperGUI:
         )
 
         # ── Log ───────────────────────────────────────────────────────────────
-        ttk.Label(main, text="Log:").grid(row=7, column=0, sticky="w", pady=(8, 2))
+        ttk.Label(main, text="Log:").grid(row=6, column=0, sticky="w", pady=(8, 2))
         self.log = scrolledtext.ScrolledText(
-            main, height=18, state="disabled", font=("Consolas", 9), wrap=tk.WORD
+            main, height=20, state="disabled", font=("Consolas", 9), wrap=tk.WORD
         )
-        self.log.grid(row=8, column=0, columnspan=3, sticky="nsew")
+        self.log.grid(row=7, column=0, columnspan=3, sticky="nsew")
 
         main.columnconfigure(1, weight=1)
-        main.rowconfigure(8, weight=1)
+        main.rowconfigure(7, weight=1)
+
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -213,6 +214,10 @@ class FasihScraperGUI:
         self._stop_event.set()
         self.stop_btn.configure(state="disabled")
         self.status_var.set("Menghentikan…")
+
+    def _on_close(self):
+        self._stop_event.set()  # signal any running scrape to stop
+        self.root.destroy()
 
 
 if __name__ == "__main__":

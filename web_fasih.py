@@ -64,7 +64,7 @@ def _new_session() -> str:
         "lock":       threading.Lock(),
         "running":    False,
         "stop_event": threading.Event(),
-        "log_queue":  queue.Queue(),
+        "log_queue":  queue.Queue(maxsize=5000),
         "sched": {
             "enabled":       False,
             "interval_mins": 120,
