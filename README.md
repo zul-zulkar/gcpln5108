@@ -52,6 +52,9 @@ Ikuti langkah ini **satu kali** sebelum pertama kali menjalankan scraper.
    - `Ringkasan`
    - `Riwayat`
 
+contoh spreadsheet sumber data ada pada tautan berikut:
+https://docs.google.com/spreadsheets/d/1BGXuTJkaOYJKT6Mo0ldR1mmT2wLNRYqyRcmcxOnSCa0/edit?usp=sharing 
+
 > **Penting:** Nama tab harus persis seperti di atas (huruf kapital di awal). Dashboard membaca tab berdasarkan nama ini.
 
 ---
