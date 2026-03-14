@@ -21,3 +21,9 @@ venv/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Scraper
+gcpln5108/gui_fasih.py
+gcpln5108/requirements.txt
+gcpln5108/scrape_fasih.py
+gcpln5108/web_fasih.py
