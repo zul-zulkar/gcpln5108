@@ -631,16 +631,19 @@
 
 <button id="scrollTop" title="Ke atas" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#8679;</button>
 
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const _DEFAULT_SHEET_ID = '1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs';
-let SHEET_ID = _DEFAULT_SHEET_ID;
-
 function _parseSheetId(url) {
+  if (!url) return null;
   const m = url.match(/\/spreadsheets\/d\/([\w-]+)/);
-  return m ? m[1] : null;
+  return m ? m[1] : (url.match(/^[\w-]{20,}$/) ? url : null);
 }
+const _DEFAULT_SHEET_ID = (typeof CONFIG !== 'undefined')
+  ? (_parseSheetId(CONFIG.DEFAULT_SHEET_URL || '') || _parseSheetId(CONFIG.DEFAULT_SHEET_ID || '') || '')
+  : '';
+let SHEET_ID = _DEFAULT_SHEET_ID;
 function _loadSheetConfig() {
   const sid = localStorage.getItem('cfg_sheet_id') || '';
   if (sid) SHEET_ID = sid;
@@ -1877,7 +1880,7 @@ function toggleSettings() {
   if (open) _populateSettingsInputs();
 }
 function _populateSettingsInputs() {
-  const sid = localStorage.getItem('cfg_sheet_id') || '';
+  const sid = localStorage.getItem('cfg_sheet_id') || SHEET_ID;
   if (sid)
     document.getElementById('cfgUrlSheet').value =
       `https://docs.google.com/spreadsheets/d/${sid}/edit`;

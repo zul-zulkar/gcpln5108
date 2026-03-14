@@ -1,122 +1,82 @@
-# Panduan Penggunaan — FASIH Scraper & Dashboard BPS Bali Utara
+# Panduan Lengkap — FASIH Scraper & Dashboard BPS Bali Utara
 
-Sistem ini terdiri dari dua bagian:
+Sistem ini terdiri dari dua komponen:
 
-| Bagian | Fungsi | Akses |
-|--------|--------|-------|
-| **Scraper** | Mengambil data Open/Submitted/Rejected per pencacah dari FASIH | [s.bps.go.id/5108_dashboardGCPLN](http://s.bps.go.id/5108_dashboardGCPLN) |
-| **Dashboard Monitoring** | Menampilkan rekap harian dari Google Sheets | Sama — tab di halaman yang sama |
-
----
-
-## Bagian 1 — Menjalankan Scraper
-
-### Langkah 1 — Buka aplikasi
-
-Buka browser dan akses:
-
-> **[http://s.bps.go.id/5108_dashboardGCPLN](http://s.bps.go.id/5108_dashboardGCPLN)**
-
-Halaman scraper akan terbuka otomatis.
+| Komponen | Fungsi |
+|----------|--------|
+| **Aplikasi Scraper (GUI)** | Mengambil data Open/Submitted/Rejected per pencacah dari FASIH secara otomatis |
+| **Dashboard Monitoring** | Menampilkan rekap dan grafik tren dari Google Sheets |
 
 ---
 
-### Langkah 2 — Siapkan file daftar petugas
+## Daftar Isi
 
-Buat file Excel (`daftar_petugas.xlsx`) dengan format berikut:
+1. [Persiapan — Buat File Daftar Petugas](#bagian-1--persiapan--buat-file-daftar-petugas)
+2. [Persiapan — Siapkan Google Sheets & Apps Script](#bagian-2--persiapan--siapkan-google-sheets--apps-script)
+3. [Menjalankan Aplikasi Scraper (GUI)](#bagian-3--menjalankan-aplikasi-scraper-gui)
+4. [Membuka & Menggunakan Dashboard](#bagian-4--membuka--menggunakan-dashboard)
+5. [Troubleshooting](#troubleshooting)
+6. [Untuk Developer — Cara B: Menjalankan via Python](#untuk-developer--cara-b-menjalankan-via-python)
 
-| Nama          | Email                     |
-|---------------|---------------------------|
-| Budi Santoso  | budi.santoso@bps.go.id    |
-| Ani Rahayu    | ani.rahayu@bps.go.id      |
+---
 
+## Bagian 1 — Persiapan: Buat File Daftar Petugas
+
+Sebelum menjalankan scraper, siapkan file Excel berisi daftar pencacah.
+
+### Format file
+
+Buat file Excel baru (misalnya `daftar_petugas.xlsx`) dengan format:
+
+| Nama | Email |
+|------|-------|
+| Budi Santoso | budi.santoso.1234@bps.go.id |
+| Ani Rahayu | ani.rahayu.5678@bps.go.id |
+
+**Aturan:**
 - Baris pertama = header (`Nama` dan `Email`)
-- Kolom Email diisi dengan **username SSO BPS** masing-masing petugas (biasanya `nama.nip@bps.go.id`)
-- Tidak perlu mengubah apapun selain mengisi nama dan email
+- Kolom `Email` diisi dengan **username SSO BPS** masing-masing pencacah (`nama.nip@bps.go.id`)
+- Tidak perlu kolom lain
+
+> **Tip:** Username SSO adalah yang digunakan untuk login ke `sso.bps.go.id`.
 
 ---
 
-### Langkah 3 — Isi form dan jalankan
-
-Di halaman scraper:
-
-1. **File Petugas** → klik **Browse** → pilih file `daftar_petugas.xlsx`
-2. **Username** → isi dengan username SSO BPS **Anda sendiri** (bukan petugas)
-3. **Password** → isi dengan password SSO BPS Anda
-4. **UPI** → isi kode UPI wilayah Anda, contoh: `[55]` untuk Bali
-5. **UP3** → isi kode UP3 wilayah Anda, contoh: `[55UTR]` untuk Bali Utara
-6. **Sheets URL** → isi dengan URL Apps Script milik Anda (lihat [cara mendapatkan URL ini](#cara-setup-google-sheets--apps-script))
-7. Klik tombol **▶ Run**
-
-> Gunakan akun SSO BPS Anda sendiri. Akun ini hanya digunakan untuk login ke FASIH, tidak disimpan di mana pun.
-
-> **Catatan:** Setiap pengguna yang membuka halaman ini di browser berbeda berjalan secara **independen** — menjalankan scraper di satu browser tidak memengaruhi pengguna lain.
-
----
-
-### Langkah 4 — Tunggu proses selesai
-
-- Log berjalan di layar secara real-time
-- Proses untuk 50+ petugas membutuhkan sekitar **20–30 menit**
-- Jangan tutup browser selama proses berjalan
-- Setelah selesai, muncul notifikasi **"Selesai ✓"**
-
----
-
-### Langkah 5 — Unduh hasil Excel
-
-Setelah selesai, klik tombol **Download Excel** untuk mengunduh file rekap:
-
-```
-rekap_fasih_pascabayar_20250313_083000.xlsx
-rekap_fasih_prabayar_20250313_083500.xlsx
-```
-
-Kolom yang tersedia:
-
-| No | Nama | Email | Open | Submitted by Pencacah | Rejected by Admin Kabupaten |
-|----|------|-------|------|-----------------------|-----------------------------|
-
----
-
----
-
-## Cara Setup Google Sheets & Apps Script
+## Bagian 2 — Persiapan: Siapkan Google Sheets & Apps Script
 
 Ikuti langkah ini **satu kali** sebelum pertama kali menjalankan scraper.
 
 ### Langkah 1 — Buat Google Sheets
 
-1. Buka [Google Sheets](https://sheets.google.com) → buat spreadsheet baru
+1. Buka [Google Sheets](https://sheets.google.com) → klik **+** untuk buat spreadsheet baru
 2. Beri nama, misalnya: `Rekap FASIH 2025`
-3. Buat **tiga sheet** (tab di bawah) dengan nama persis seperti berikut:
-   - `Utama` — daftar petugas dan kolom ULP (untuk filter di dashboard)
-   - `Ringkasan` — rekap total harian otomatis dari scraper
-   - `Riwayat` — detail per pencacah setiap kali scraper dijalankan
+3. Buat **tiga tab** (klik **+** di pojok kiri bawah) dengan nama persis:
+   - `Utama`
+   - `Ringkasan`
+   - `Riwayat`
 
-> **Penting:** Nama tab harus persis `Utama`, `Ringkasan`, dan `Riwayat` (huruf kapital di awal). Dashboard membaca tab berdasarkan nama ini secara otomatis.
+> **Penting:** Nama tab harus persis seperti di atas (huruf kapital di awal). Dashboard membaca tab berdasarkan nama ini.
 
 ---
 
 ### Langkah 2 — Isi tab Utama (daftar petugas & ULP)
 
-Tab `Utama` digunakan oleh dashboard untuk mengelompokkan petugas per ULP. Isi dengan format berikut:
+Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 
 | ULP | Nama | Email |
 |-----|------|-------|
-| ULP Singaraja | Budi Santoso | budi.santoso@bps.go.id |
-| ULP Buleleng | Ani Rahayu | ani.rahayu@bps.go.id |
+| ULP Singaraja | Budi Santoso | budi.santoso.1234@bps.go.id |
+| ULP Buleleng | Ani Rahayu | ani.rahayu.5678@bps.go.id |
 
-- Baris pertama = header
-- Kolom `Email` harus diisi dengan username SSO BPS yang sama dengan file `daftar_petugas.xlsx`
-- Kolom `ULP` digunakan sebagai kategori filter di dashboard
+- Baris pertama = header (`ULP`, `Nama`, `Email`)
+- Kolom `Email` harus sama persis dengan yang ada di `daftar_petugas.xlsx`
 
 ---
 
 ### Langkah 3 — Buat Apps Script
 
 1. Di spreadsheet, klik menu **Extensions → Apps Script**
-2. Hapus semua kode yang ada, lalu **paste kode berikut**:
+2. Hapus semua kode yang ada, lalu paste kode berikut:
 
 ```javascript
 function doPost(e) {
@@ -125,7 +85,6 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
 
     if (data.type === "detail") {
-      // ── Sheet Riwayat ─────────────────────────────────────────────
       const ws = ss.getSheetByName("Riwayat") || ss.insertSheet("Riwayat");
       if (ws.getLastRow() === 0) {
         ws.appendRow(["Tanggal","Waktu","Nama","Email",
@@ -138,7 +97,6 @@ function doPost(e) {
           r.open_praba, r.submit_praba, r.reject_praba]);
       });
     } else {
-      // ── Sheet Ringkasan ───────────────────────────────────────────
       const ws = ss.getSheetByName("Ringkasan") || ss.insertSheet("Ringkasan");
       if (ws.getLastRow() === 0) {
         ws.appendRow(["Tanggal","Waktu",
@@ -164,149 +122,44 @@ function doPost(e) {
 ### Langkah 4 — Deploy sebagai Web App
 
 1. Klik menu **Deploy → New deployment**
-2. Di samping "Select type", klik ikon ⚙️ → pilih **Web app**
+2. Klik ikon ⚙️ → pilih **Web app**
 3. Isi pengaturan:
-   - **Description**: `FASIH Webhook`
    - **Execute as**: `Me`
    - **Who has access**: `Anyone`
-4. Klik **Deploy**
-5. Klik **Authorize access** → pilih akun Google Anda → klik **Allow**
-6. Salin URL yang muncul — bentuknya:
+4. Klik **Deploy** → **Authorize access** → pilih akun Google → **Allow**
+5. Salin **URL** yang muncul:
    ```
    https://script.google.com/macros/s/XXXXX.../exec
    ```
 
-> **Simpan URL ini** — inilah yang diisi di kolom **Sheets URL** pada halaman scraper.
+> Simpan URL ini — inilah yang diisi di kolom **URL Apps Script** pada aplikasi scraper.
 
 ---
 
-### Langkah 5 — Isi URL di scraper
+### Langkah 5 — Atur akses baca (untuk dashboard)
 
-Kembali ke halaman scraper, tempel URL Apps Script tersebut di kolom **Sheets URL**. URL akan tersimpan otomatis di browser, jadi tidak perlu diisi ulang setiap kali.
-
----
-
-### Langkah 6 — Hubungkan dashboard ke Google Sheets
-
-1. Buka dashboard di [s.bps.go.id/5108_dashboardGCPLN](http://s.bps.go.id/5108_dashboardGCPLN)
-2. Klik ikon **⚙️ Pengaturan** di pojok kanan atas
-3. Tempel **URL spreadsheet** Google Sheets Anda (cukup satu URL — tab mana saja)
-4. Klik **💾 Simpan & Muat**
-
-Dashboard otomatis menemukan tab `Utama`, `Ringkasan`, dan `Riwayat` berdasarkan nama.
+1. Klik tombol **Share** di spreadsheet
+2. Di bagian **General access**, ubah ke **Anyone with the link → Viewer**
+3. Klik **Done**
 
 ---
 
-## Bagian 2 — Membaca Google Sheets
-
-Hasil scraper otomatis tersimpan ke Google Sheets dalam tiga sheet:
-
-### Sheet "Utama" — daftar petugas per ULP
-
-Diisi manual, berisi pemetaan petugas ke ULP masing-masing. Digunakan oleh dashboard untuk tombol filter ULP.
-
-### Sheet "Ringkasan" — rekap harian
-
-Berisi total per survei per hari:
-
-| Tanggal | Waktu | Open Pasca | Submit Pasca | Reject Pasca | Open Praba | Submit Praba | Reject Praba |
-|---------|-------|-----------|--------------|--------------|-----------|--------------|--------------|
-| 13/03/2025 | 08:30 | 45 | 210 | 3 | 38 | 195 | 1 |
-
-Gunakan sheet ini untuk memantau **tren harian** progress pengisian.
-
----
-
-### Sheet "Riwayat" — detail per pencacah
-
-Berisi data lengkap setiap pencacah setiap kali scraper dijalankan:
-
-| Tanggal | Waktu | Nama | Email | Open Pasca | Submit Pasca | Reject Pasca | Open Praba | Submit Praba | Reject Praba |
-|---------|-------|------|-------|-----------|--------------|--------------|-----------|--------------|--------------|
-
-Gunakan sheet ini untuk:
-- Memantau pencacah mana yang belum submit
-- Melihat riwayat perubahan per hari
-- Filter/sort berdasarkan nama atau jumlah submit
-
----
-
-## Bagian 3 — Dashboard Monitoring
-
-Dashboard di halaman yang sama menampilkan visualisasi data dari Google Sheets secara otomatis.
-
-### Cara membaca dashboard
-
-- **Tombol filter ULP** di bagian atas → klik untuk melihat data per kantor cabang
-- **Kartu ringkasan** → total Open, Submitted, Rejected hari ini
-- **Tabel per pencacah** → status masing-masing petugas (hijau = sudah submit semua, merah = masih ada yang open)
-- **Grafik tren harian** → progress dari awal periode survei
-- **Grafik per pencacah** → riwayat historis per petugas, dapat difilter per ULP dan per individu
-
-### Navigasi dashboard
-
-- Klik **tombol ULP** di atas untuk memfilter semua tampilan berdasarkan kantor cabang
-- Gunakan **tombol ↑** di pojok kanan bawah untuk kembali ke atas halaman
-- Klik **⚙️** di header untuk mengubah sumber data Google Sheets
-
-### Memperbarui data di dashboard
-
-Dashboard membaca data langsung dari Google Sheets. Data akan otomatis ter-update setelah scraper selesai dijalankan — tidak perlu refresh manual.
-
----
-
-## Pertanyaan Umum
-
-**Login SSO gagal / salah password?**
-Pastikan username dan password sama dengan yang digunakan untuk login ke `sso.bps.go.id`. Jika baru ganti password, gunakan yang terbaru.
-
-**Email petugas tidak ditemukan?**
-Pastikan kolom Email di `daftar_petugas.xlsx` diisi dengan username SSO (bukan email pribadi). Contoh: `budi.santoso.1234@bps.go.id`.
-
-**Proses berhenti di tengah jalan?**
-Klik **▶ Run** lagi. Scraper akan mengulang dari awal. File Excel akan di-overwrite dengan data terbaru.
-
-**Data di dashboard tidak berubah?**
-Refresh halaman browser (`F5`). Jika masih tidak berubah, cek apakah scraper sudah benar-benar selesai (status "Selesai ✓").
-
-**Filter ULP tidak muncul?**
-Pastikan tab `Utama` sudah diisi dan memiliki kolom `ULP` dan `Email`. Setelah diisi, refresh dashboard.
-
-**Dashboard tidak bisa membaca data?**
-Klik ⚙️ di header → pastikan URL spreadsheet sudah diisi dan benar → klik Simpan & Muat.
-
----
-
-## Bagian 4 — Menjalankan Scraper di PC Sendiri (Aplikasi Desktop)
-
-Ada **dua cara** menjalankan scraper di PC sendiri:
-
-| Cara | Cocok untuk | Syarat |
-|------|-------------|--------|
-| **EXE (direkomendasikan)** | Distribusi ke banyak pengguna | Tidak perlu install Python |
-| **Python langsung** | Developer / pengembang | Python harus sudah terinstall |
-
----
-
-## Cara A — Menggunakan Aplikasi EXE (Direkomendasikan)
-
-Tidak perlu install Python. Cukup salin folder dan langsung jalankan.
+## Bagian 3 — Menjalankan Aplikasi Scraper (GUI)
 
 ### Langkah 1 — Salin folder FASIH_Scraper
 
 Minta folder `FASIH_Scraper` dari pengelola sistem (atau salin dari flashdisk/Google Drive).
 
-Struktur folder yang diterima:
-
 ```
 FASIH_Scraper\
-├── FASIH_Scraper.exe   ← klik dua kali untuk membuka
-├── browsers\           ← Chromium browser (sudah termasuk)
-├── _internal\          ← file pendukung (jangan dihapus)
-└── output\             ← hasil Excel tersimpan di sini (dibuat otomatis)
+├── FASIH_Scraper.exe    ← klik dua kali untuk membuka
+├── browsers\            ← Chromium browser (sudah termasuk)
+├── _internal\           ← file pendukung (jangan dihapus)
+├── fasih_settings.json  ← pengaturan tersimpan (dibuat otomatis)
+└── output\              ← hasil Excel tersimpan di sini (dibuat otomatis)
 ```
 
-> **Penting:** Kirim/salin **seluruh folder** `FASIH_Scraper`, bukan hanya file `.exe`-nya saja. Jika file di dalam folder dihapus atau dipindah, aplikasi tidak akan berjalan.
+> **Penting:** Salin **seluruh folder**, bukan hanya `.exe`.
 
 ---
 
@@ -314,154 +167,200 @@ FASIH_Scraper\
 
 Klik dua kali `FASIH_Scraper.exe`.
 
-Jika muncul peringatan Windows Defender / SmartScreen:
-- Klik **More info** → **Run anyway**
+Jika muncul peringatan Windows SmartScreen: klik **More info** → **Run anyway**.
 
 ---
 
-### Langkah 3 — Isi form dan jalankan
+### Langkah 3 — Isi form
 
 | Field | Isi dengan |
-|-------|-----------|
+|-------|------------|
 | **File Petugas** | Klik Browse → pilih `daftar_petugas.xlsx` |
 | **Username** | Username SSO BPS Anda (`nama.nip@bps.go.id`) |
 | **Password** | Password SSO BPS Anda |
-| **UPI** | Kode UPI, contoh: `[55]` untuk Bali |
-| **UP3** | Kode UP3, contoh: `[55UTR]` untuk Bali Utara |
-| **Sheets URL** | URL Apps Script (lihat [cara setup](#cara-setup-google-sheets--apps-script)) |
+| **UPI** | Kode UPI wilayah, contoh: `[55]` untuk Bali |
+| **UP3** | Kode UP3 wilayah, contoh: `[55UTR]` untuk Bali Utara |
+| **URL Apps Script** | URL dari Langkah 4 di atas |
 
-Klik **▶ Run** — log berjalan real-time di bawah.
-
-> **VPN:** Jika jaringan kantor memerlukan VPN, centang **Reconnect VPN sebelum Run** dan isi nama koneksi VPN Anda. Mendukung FortiClient dan VPN Windows standar.
+> Pengaturan (kecuali password) **tersimpan otomatis** ke `fasih_settings.json` — tidak perlu diisi ulang saat aplikasi dibuka kembali.
 
 ---
 
-### Langkah 4 — Hasil scraping
+### Langkah 4 — (Opsional) Aktifkan auto-run harian
 
-Setelah selesai (muncul status **"Selesai ✓"**):
+Untuk menjalankan scraper otomatis setiap hari pada jam tertentu:
 
+1. Centang **Aktifkan auto-run harian pukul:**
+2. Isi jam target, contoh: `07:00`
+3. Klik **▶ Run** sekali agar pengaturan tersimpan
+
+Selanjutnya, cukup buka aplikasi sebelum jam yang ditentukan — scraper berjalan otomatis saat jam tiba.
+
+> Aplikasi harus tetap terbuka agar auto-run aktif. Untuk otomatis penuh tanpa membuka manual, gunakan Windows Task Scheduler untuk membuka `FASIH_Scraper.exe` pada waktu sesuai.
+
+---
+
+### Langkah 5 — (Opsional) Aktifkan VPN
+
+Jika jaringan kantor memerlukan VPN:
+
+1. Centang **Reconnect VPN sebelum Run**
+2. Isi **Nama Koneksi** — nama koneksi VPN di Windows
+3. Isi **User VPN** dan **Pass VPN** jika diperlukan
+
+Mendukung FortiClient dan VPN Windows standar.
+
+---
+
+### Langkah 6 — Klik Run dan tunggu
+
+Klik **▶ Run** — log berjalan real-time di bawah.
+
+Proses untuk 50+ pencacah membutuhkan **20–30 menit**. Jangan tutup aplikasi selama berjalan.
+
+Setelah selesai (status **"Selesai ✓"**):
 - Klik **📂 Buka Folder Hasil** → folder `output\` terbuka di Explorer
-- Di dalamnya terdapat file Excel:
+- File Excel tersimpan di sana:
   ```
   rekap_fasih_pascabayar_20250313_083000.xlsx
   rekap_fasih_prabayar_20250313_083500.xlsx
   ```
-- Data juga otomatis terkirim ke Google Sheets (jika Sheets URL diisi)
+- Data juga otomatis terkirim ke Google Sheets (jika URL Apps Script diisi)
 
 ---
 
 ### Membuat shortcut di Desktop
 
-1. Klik kanan `FASIH_Scraper.exe` → **Send to → Desktop (create shortcut)**
-2. Shortcut siap digunakan
+Klik kanan `FASIH_Scraper.exe` → **Send to → Desktop (create shortcut)**
 
 ---
 
-### Troubleshooting EXE
+## Bagian 4 — Membuka & Menggunakan Dashboard
 
-**Peringatan "Windows protected your PC" / SmartScreen**
-→ Klik **More info** → **Run anyway**. Peringatan ini muncul karena EXE belum memiliki sertifikat publisher berbayar — aman untuk diabaikan.
+### Cara membuka dashboard
+
+**Lokal (offline):** Salin folder `gcpln5108\` ke PC → klik dua kali `index.html`.
+
+**Online (dihosting):** Upload `index.html` dan `config.js` ke server web atau Google Sites.
+
+---
+
+### Mengatur sumber data default (config.js)
+
+File `config.js` menentukan Google Sheets yang dibaca dashboard saat pertama dibuka. Cukup edit file ini satu kali — semua pengguna langsung melihat data yang benar tanpa perlu konfigurasi.
+
+1. Buka `config.js` dengan Notepad
+2. Tempel URL lengkap spreadsheet Anda:
+
+```javascript
+const CONFIG = {
+  DEFAULT_SHEET_URL: 'https://docs.google.com/spreadsheets/d/XXXXX.../edit',
+};
+```
+
+Cukup salin URL dari address bar browser saat spreadsheet terbuka — tidak perlu mengambil ID secara manual.
+
+3. Simpan `config.js`
+
+---
+
+### Mengganti sumber data dari dalam browser
+
+Tanpa mengedit file, pengguna bisa mengganti sumber data:
+
+1. Klik ikon **⚙️** di pojok kanan atas dashboard
+2. Tempel URL spreadsheet Google Sheets
+3. Klik **💾 Simpan & Muat**
+
+Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Default** untuk kembali ke sumber bawaan.
+
+---
+
+### Cara membaca dashboard
+
+- **Filter ULP** di bagian atas → klik untuk melihat per kantor cabang
+- **Kartu ringkasan** → total Open / Submitted / Rejected hari ini
+- **Tabel per pencacah** → hijau = sudah submit semua, merah = masih ada open
+- **Grafik tren harian** → progress dari awal periode survei
+- **Grafik per pencacah** → riwayat historis, bisa difilter per ULP dan per individu
+- **Tombol ↑** di pojok kanan bawah → kembali ke atas halaman
+- **🔄 Perbarui** di header → muat ulang data sekarang (otomatis setiap 5 menit)
+
+---
+
+## Troubleshooting
+
+**Peringatan "Windows protected your PC"**
+→ Klik **More info** → **Run anyway**. EXE belum bersertifikat publisher berbayar — aman.
 
 **Aplikasi langsung tertutup saat dibuka**
-→ Pastikan folder `_internal\` dan `browsers\` ada di lokasi yang sama dengan `FASIH_Scraper.exe`. Jangan pindah hanya file `.exe`-nya.
+→ Pastikan folder `_internal\` dan `browsers\` ada di lokasi yang sama dengan `.exe`.
 
 **Login SSO gagal**
-→ Pastikan username format `nama.nip@bps.go.id` dan password sama dengan login ke `sso.bps.go.id`
+→ Pastikan username format `nama.nip@bps.go.id` dan password sama dengan login ke `sso.bps.go.id`.
 
-**Jendela tidak muncul saat klik Run**
-→ Cek apakah file `daftar_petugas.xlsx` sudah dipilih dan path-nya benar
+**Email petugas tidak ditemukan**
+→ Pastikan kolom Email di `daftar_petugas.xlsx` diisi username SSO (bukan email pribadi).
+
+**Proses berhenti di tengah jalan**
+→ Klik **▶ Run** lagi. Scraper mengulang dari awal.
+
+**Data di dashboard tidak berubah setelah scraper selesai**
+→ Tekan `F5` untuk refresh. Jika masih tidak berubah, pastikan scraper sudah benar-benar selesai.
+
+**Filter ULP tidak muncul di dashboard**
+→ Pastikan tab `Utama` sudah diisi dengan kolom `ULP` dan `Email`, lalu refresh dashboard.
+
+**Dashboard kosong / tidak menampilkan data saat pertama dibuka**
+→ Edit `config.js`, isi `DEFAULT_SHEET_ID` dengan Sheet ID spreadsheet Anda. Pastikan spreadsheet sudah diatur "Anyone with the link → Viewer".
+
+**Auto-run tidak berjalan**
+→ Pastikan aplikasi tetap terbuka dan jam komputer sudah benar.
 
 ---
 
-## Cara B — Menggunakan Python (untuk Developer)
-
-Gunakan cara ini jika ingin memodifikasi program atau tidak ingin menyalin folder besar.
+## Untuk Developer — Cara B: Menjalankan via Python
 
 ### Langkah 1 — Install Python
 
-1. Buka [python.org/downloads](https://www.python.org/downloads/)
-2. Download Python **3.11** atau lebih baru
-3. Saat instalasi, **centang** opsi **"Add Python to PATH"**
-4. Klik Install Now
-
-Cek instalasi: buka Command Prompt, ketik:
-```
-python --version
-```
-Harus muncul versi Python, misal `Python 3.11.x`.
-
----
+Download Python **3.11+** dari [python.org/downloads](https://www.python.org/downloads/). Saat instalasi, **centang "Add Python to PATH"**.
 
 ### Langkah 2 — Salin file program
 
-Salin file-file berikut ke satu folder di PC:
-
 ```
 fasih_scraper\
-├── gui_fasih.py        ← aplikasi utama
-├── scrape_fasih.py     ← engine scraping
-├── requirements.txt    ← daftar library
+├── gui_fasih.py
+├── scrape_fasih.py
+├── requirements.txt
 └── input\
     └── daftar_petugas.xlsx
 ```
 
----
-
 ### Langkah 3 — Install library
 
-Buka Command Prompt, masuk ke folder program:
-```
-cd C:\path\ke\fasih_scraper
-```
-
-Install semua library:
 ```
 pip install -r requirements.txt
-```
-
-Install browser Playwright (hanya perlu dilakukan sekali):
-```
 playwright install chromium
 ```
 
-> Jika muncul error `pip tidak dikenal`, coba: `python -m pip install -r requirements.txt`
-
----
-
-### Langkah 4 — Jalankan aplikasi
+### Langkah 4 — Jalankan
 
 ```
 python gui_fasih.py
 ```
 
----
-
-### Membuat EXE dari source code
-
-Jika ingin membuat ulang EXE dari source code:
+### Membuat ulang EXE dari source code
 
 ```
 pip install pyinstaller
 playwright install chromium
 ```
 
-Lalu klik dua kali `build.bat` — file EXE dan browser akan otomatis dikompilasi dan dikemas ke folder `dist\FASIH_Scraper\`.
+Lalu klik dua kali `build.bat` — EXE dan browser dikemas ke `dist\FASIH_Scraper\`.
 
----
-
-### Troubleshooting Python
-
-**`ModuleNotFoundError: No module named 'playwright'`**
-→ Jalankan ulang: `pip install -r requirements.txt`
-
-**`playwright install` gagal / browser tidak terbuka**
-→ Jalankan: `playwright install chromium --with-deps`
-
-**Login SSO gagal**
-→ Pastikan username format `nama.nip@bps.go.id` dan password sama dengan login ke `sso.bps.go.id`
-
-**Jendela tidak muncul saat klik Run**
-→ Cek apakah file `daftar_petugas.xlsx` sudah dipilih dan path-nya benar
+**Troubleshooting Python:**
+- `ModuleNotFoundError` → jalankan ulang `pip install -r requirements.txt`
+- `playwright install` gagal → coba `playwright install chromium --with-deps`
 
 ---
 
