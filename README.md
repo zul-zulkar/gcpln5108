@@ -1,4 +1,4 @@
-# Panduan Lengkap — FASIH Scraper & Dashboard BPS Bali Utara
+# Panduan — FASIH Scraper & Dashboard BPS Bali Utara
 
 Sistem ini terdiri dari dua komponen:
 
@@ -16,7 +16,6 @@ Sistem ini terdiri dari dua komponen:
 3. [Menjalankan Aplikasi Scraper (GUI)](#bagian-3--menjalankan-aplikasi-scraper-gui)
 4. [Membuka & Menggunakan Dashboard](#bagian-4--membuka--menggunakan-dashboard)
 5. [Troubleshooting](#troubleshooting)
-6. [Untuk Developer — Cara B: Menjalankan via Python](#untuk-developer--cara-b-menjalankan-via-python)
 
 ---
 
@@ -65,11 +64,13 @@ Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 
 | ULP | Nama | Email |
 |-----|------|-------|
-| ULP Singaraja | Budi Santoso | budi.santoso.1234@bps.go.id |
-| ULP Buleleng | Ani Rahayu | ani.rahayu.5678@bps.go.id |
+| ULP Singaraja | Budi Santoso | bud****oso@gmail.com |
+| ULP Buleleng | Ani Rahayu | ani****ayu@yahoo.com |
 
 - Baris pertama = header (`ULP`, `Nama`, `Email`)
-- Kolom `Email` harus sama persis dengan yang ada di `daftar_petugas.xlsx`
+- Kolom `Email` harus diisi dalam **format tersamar** yang sama dengan yang dihasilkan Apps Script
+
+> **Cara mudah:** Jalankan scraper sekali, lihat hasil di tab `Riwayat`, lalu salin format email dari sana ke tab `Utama`.
 
 ---
 
@@ -79,6 +80,20 @@ Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 2. Hapus semua kode yang ada, lalu paste kode berikut:
 
 ```javascript
+// Samarkan bagian tengah local-part, tampilkan 3 karakter awal + 3 karakter akhir
+// Contoh: budisantoso@gmail.com → bud****oso@gmail.com
+//         ani.rahayu@yahoo.com  → ani****ayu@yahoo.com
+function maskEmail(email) {
+  if (!email || !email.includes('@')) return email;
+  const at  = email.indexOf('@');
+  const local  = email.slice(0, at);
+  const domain = email.slice(at);          // termasuk '@'
+  if (local.length <= 6) {
+    return local[0] + '*'.repeat(local.length - 1) + domain;
+  }
+  return local.slice(0, 3) + '*'.repeat(local.length - 6) + local.slice(-3) + domain;
+}
+
 function doPost(e) {
   try {
     const ss   = SpreadsheetApp.getActiveSpreadsheet();
@@ -92,7 +107,7 @@ function doPost(e) {
           "Open Praba","Submit Praba","Reject Praba"]);
       }
       (data.rows || []).forEach(r => {
-        ws.appendRow([data.tanggal, data.waktu, r.nama, r.email,
+        ws.appendRow([data.tanggal, data.waktu, r.nama, maskEmail(r.email),
           r.open_pasca, r.submit_pasca, r.reject_pasca,
           r.open_praba, r.submit_praba, r.reject_praba]);
       });
@@ -186,17 +201,17 @@ Jika muncul peringatan Windows SmartScreen: klik **More info** → **Run anyway*
 
 ---
 
-### Langkah 4 — (Opsional) Aktifkan auto-run harian
+### Langkah 4 — (Opsional) Aktifkan auto-run berkala
 
-Untuk menjalankan scraper otomatis setiap hari pada jam tertentu:
+Untuk menjalankan scraper secara otomatis setiap X menit:
 
-1. Centang **Aktifkan auto-run harian pukul:**
-2. Isi jam target, contoh: `07:00`
+1. Centang **Aktifkan auto-run setiap:**
+2. Isi interval, contoh: `60` untuk setiap 1 jam
 3. Klik **▶ Run** sekali agar pengaturan tersimpan
 
-Selanjutnya, cukup buka aplikasi sebelum jam yang ditentukan — scraper berjalan otomatis saat jam tiba.
+Selanjutnya scraper akan berjalan otomatis setiap interval yang ditentukan selama aplikasi tetap terbuka.
 
-> Aplikasi harus tetap terbuka agar auto-run aktif. Untuk otomatis penuh tanpa membuka manual, gunakan Windows Task Scheduler untuk membuka `FASIH_Scraper.exe` pada waktu sesuai.
+> Untuk otomatis penuh, gunakan Windows Task Scheduler untuk membuka `FASIH_Scraper.exe` pada waktu yang diinginkan.
 
 ---
 
@@ -220,10 +235,11 @@ Proses untuk 50+ pencacah membutuhkan **20–30 menit**. Jangan tutup aplikasi s
 
 Setelah selesai (status **"Selesai ✓"**):
 - Klik **📂 Buka Folder Hasil** → folder `output\` terbuka di Explorer
-- File Excel tersimpan di sana:
+- Satu file Excel tersimpan di sana dengan dua sheet:
   ```
-  rekap_fasih_pascabayar_20250313_083000.xlsx
-  rekap_fasih_prabayar_20250313_083500.xlsx
+  rekap_fasih_20250313_083000.xlsx
+    ├── Sheet: Ringkasan   ← total Open/Submit/Reject Pasca & Praba
+    └── Sheet: Riwayat     ← detail per pencacah
   ```
 - Data juga otomatis terkirim ke Google Sheets (jika URL Apps Script diisi)
 
@@ -241,7 +257,16 @@ Klik kanan `FASIH_Scraper.exe` → **Send to → Desktop (create shortcut)**
 
 **Lokal (offline):** Salin folder `gcpln5108\` ke PC → klik dua kali `index.html`.
 
-**Online (dihosting):** Upload `index.html` dan `config.js` ke server web atau Google Sites.
+Pastikan semua file berada dalam satu folder:
+```
+gcpln5108\
+├── index.html   ← buka file ini
+├── style.css
+├── app.js
+└── config.js
+```
+
+**Online (dihosting):** Upload keempat file di atas ke server web atau GitHub Pages.
 
 ---
 
@@ -268,7 +293,7 @@ Cukup salin URL dari address bar browser saat spreadsheet terbuka — tidak perl
 
 Tanpa mengedit file, pengguna bisa mengganti sumber data:
 
-1. Klik ikon **⚙️** di pojok kanan atas dashboard
+1. Klik tombol **⚙️ Sumber Data** di pojok kanan atas dashboard
 2. Tempel URL spreadsheet Google Sheets
 3. Klik **💾 Simpan & Muat**
 
@@ -284,7 +309,7 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 - **Grafik tren harian** → progress dari awal periode survei
 - **Grafik per pencacah** → riwayat historis, bisa difilter per ULP dan per individu
 - **Tombol ↑** di pojok kanan bawah → kembali ke atas halaman
-- **🔄 Perbarui** di header → muat ulang data sekarang (otomatis setiap 5 menit)
+- **🔄 Refresh** di header → muat ulang data sekarang (otomatis setiap 5 menit)
 
 ---
 
@@ -306,64 +331,19 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 → Klik **▶ Run** lagi. Scraper mengulang dari awal.
 
 **Data di dashboard tidak berubah setelah scraper selesai**
-→ Tekan `F5` untuk refresh. Jika masih tidak berubah, pastikan scraper sudah benar-benar selesai.
+→ Klik **🔄 Refresh** di header. Jika masih tidak berubah, pastikan scraper sudah benar-benar selesai.
 
 **Filter ULP tidak muncul di dashboard**
 → Pastikan tab `Utama` sudah diisi dengan kolom `ULP` dan `Email`, lalu refresh dashboard.
 
 **Dashboard kosong / tidak menampilkan data saat pertama dibuka**
-→ Edit `config.js`, isi `DEFAULT_SHEET_ID` dengan Sheet ID spreadsheet Anda. Pastikan spreadsheet sudah diatur "Anyone with the link → Viewer".
+→ Edit `config.js`, isi `DEFAULT_SHEET_URL` dengan URL lengkap spreadsheet Anda. Pastikan spreadsheet sudah diatur "Anyone with the link → Viewer".
 
 **Auto-run tidak berjalan**
-→ Pastikan aplikasi tetap terbuka dan jam komputer sudah benar.
-
----
-
-## Untuk Developer — Cara B: Menjalankan via Python
-
-### Langkah 1 — Install Python
-
-Download Python **3.11+** dari [python.org/downloads](https://www.python.org/downloads/). Saat instalasi, **centang "Add Python to PATH"**.
-
-### Langkah 2 — Salin file program
-
-```
-fasih_scraper\
-├── gui_fasih.py
-├── scrape_fasih.py
-├── requirements.txt
-└── input\
-    └── daftar_petugas.xlsx
-```
-
-### Langkah 3 — Install library
-
-```
-pip install -r requirements.txt
-playwright install chromium
-```
-
-### Langkah 4 — Jalankan
-
-```
-python gui_fasih.py
-```
-
-### Membuat ulang EXE dari source code
-
-```
-pip install pyinstaller
-playwright install chromium
-```
-
-Lalu klik dua kali `build.bat` — EXE dan browser dikemas ke `dist\FASIH_Scraper\`.
-
-**Troubleshooting Python:**
-- `ModuleNotFoundError` → jalankan ulang `pip install -r requirements.txt`
-- `playwright install` gagal → coba `playwright install chromium --with-deps`
+→ Pastikan aplikasi tetap terbuka dan centang sudah diaktifkan.
 
 ---
 
 ## Kontak
 
-Untuk pertanyaan teknis, hubungi pengelola sistem di BPS Bali Utara.
+Untuk pertanyaan teknis, hubungi pengelola sistem di BPS Kabupaten Buleleng.

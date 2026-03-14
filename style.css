@@ -53,7 +53,9 @@
     .hdr-title h1 { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
     .hdr-title p  { font-size: 0.73rem; opacity: .8; margin-top: .1rem; }
 
-    .hdr-right { display: flex; align-items: center; gap: .6rem; }
+    .hdr-right { display: flex; align-items: center; gap: .75rem; }
+    .hdr-group { display: flex; align-items: center; gap: .45rem; }
+    .hdr-sep { width: 1px; height: 22px; background: rgba(255,255,255,.3); flex-shrink: 0; }
     #lastUpdated { font-size: .72rem; opacity: .85; white-space: nowrap; }
 
     .btn-refresh {
@@ -431,7 +433,7 @@
       .hdr-right {
         width: 100%;
         flex-wrap: wrap;
-        gap: .4rem;
+        gap: .5rem;
         align-items: center;
         padding-top: 0;
         max-height: 0;
@@ -449,6 +451,7 @@
         pointer-events: auto;
         padding-top: .5rem;
       }
+      .hdr-sep { display: none; }
 
       /* Settings panel */
       #settingsPanel { padding: .65rem .9rem; }

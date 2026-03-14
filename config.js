@@ -8,5 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CONFIG = {
-  DEFAULT_SHEET_URL: 'https://docs.google.com/spreadsheets/d/1JP6OcxJx6_thOEnHjy3ITZXpFRzHFvaX5zZzF1ZAjvs/edit',
+  // Milik BPS Kabupaten Buleleng
+  DEFAULT_SHEET_URL: 'https://docs.google.com/spreadsheets/d/1BGXuTJkaOYJKT6Mo0ldR1mmT2wLNRYqyRcmcxOnSCa0/edit?usp=sharing',
+  
 };

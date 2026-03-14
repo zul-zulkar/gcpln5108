@@ -30,16 +30,21 @@
     <span class="hbg-bar"></span>
   </button>
   <div class="hdr-right">
-    <span id="lastUpdated">–</span>
-    <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
-      <span id="themeIcon">🌙</span>
-    </button>
-    <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
-      ⚙️ <span class="btn-text">Sumber Data</span>
-    </button>
-    <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
-      <span id="refreshIcon">🔄</span><span class="btn-text"> Refresh</span>
-    </button>
+    <div class="hdr-group">
+      <span id="lastUpdated">–</span>
+      <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
+        <span id="refreshIcon">🔄</span><span class="btn-text"> Refresh</span>
+      </button>
+    </div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-group">
+      <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
+        ⚙️ <span class="btn-text">Sumber Data</span>
+      </button>
+      <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
+        <span id="themeIcon">🌙</span>
+      </button>
+    </div>
   </div>
 </header>
 
