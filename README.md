@@ -29,15 +29,13 @@ Buat file Excel baru (misalnya `daftar_petugas.xlsx`) dengan format:
 
 | Nama | Email |
 |------|-------|
-| Budi Santoso | budi.santoso.1234@bps.go.id |
-| Ani Rahayu | ani.rahayu.5678@bps.go.id |
+| Budi Santoso | budi.santoso.1234@gmail.com |
+| Ani Rahayu | ani.rahayu.5678@gmail.com |
 
 **Aturan:**
 - Baris pertama = header (`Nama` dan `Email`)
-- Kolom `Email` diisi dengan **username SSO BPS** masing-masing pencacah (`nama.nip@bps.go.id`)
+- Kolom `Email` diisi dengan masing-masing pencacah (`nama.nip@gmail.com`)
 - Tidak perlu kolom lain
-
-> **Tip:** Username SSO adalah yang digunakan untuk login ke `sso.bps.go.id`.
 
 ---
 
@@ -85,9 +83,9 @@ Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 //         ani.rahayu@yahoo.com  → ani****ayu@yahoo.com
 function maskEmail(email) {
   if (!email || !email.includes('@')) return email;
-  const at  = email.indexOf('@');
+  const at     = email.indexOf('@');
   const local  = email.slice(0, at);
-  const domain = email.slice(at);          // termasuk '@'
+  const domain = email.slice(at);
   if (local.length <= 6) {
     return local[0] + '*'.repeat(local.length - 1) + domain;
   }
@@ -96,36 +94,111 @@ function maskEmail(email) {
 
 function doPost(e) {
   try {
-    const ss   = SpreadsheetApp.getActiveSpreadsheet();
     const data = JSON.parse(e.postData.contents);
-
-    if (data.type === "detail") {
-      const ws = ss.getSheetByName("Riwayat") || ss.insertSheet("Riwayat");
-      if (ws.getLastRow() === 0) {
-        ws.appendRow(["Tanggal","Waktu","Nama","Email",
-          "Open Pasca","Submit Pasca","Reject Pasca",
-          "Open Praba","Submit Praba","Reject Praba"]);
-      }
-      (data.rows || []).forEach(r => {
-        ws.appendRow([data.tanggal, data.waktu, r.nama, maskEmail(r.email),
-          r.open_pasca, r.submit_pasca, r.reject_pasca,
-          r.open_praba, r.submit_praba, r.reject_praba]);
-      });
+    if (data.type === 'detail') {
+      handleDetail(data);
     } else {
-      const ws = ss.getSheetByName("Ringkasan") || ss.insertSheet("Ringkasan");
-      if (ws.getLastRow() === 0) {
-        ws.appendRow(["Tanggal","Waktu",
-          "Open Pasca","Submit Pasca","Reject Pasca",
-          "Open Praba","Submit Praba","Reject Praba"]);
-      }
-      ws.appendRow([data.tanggal, data.waktu,
-        data.open_pasca, data.submit_pasca, data.reject_pasca,
-        data.open_praba, data.submit_praba, data.reject_praba]);
+      handleRingkasan(data);
     }
-
-    return ContentService.createTextOutput("ok");
+    return ContentService.createTextOutput(JSON.stringify({ok: true}))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput("error: " + err.message);
+    return ContentService.createTextOutput(JSON.stringify({error: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ── Helper: konversi Date object → string "dd/MM/yyyy" ─────────────────────
+function _fmt(val) {
+  if (val === null || val === undefined || val === '') return '';
+  if (val instanceof Date)
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), "dd/MM/yyyy");
+  return String(val).trim();
+}
+
+// ── Tab Ringkasan ──────────────────────────────────────────────────────────────
+function handleRingkasan(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Ringkasan');
+  if (!sheet) {
+    sheet = ss.insertSheet('Ringkasan');
+    sheet.appendRow(['Tanggal','Waktu','Open Pasca','Submit Pasca','Reject Pasca',
+                     'Open Praba','Submit Praba','Reject Praba']);
+    sheet.getRange('A:A').setNumberFormat('@');
+  }
+
+  const tanggal = data.tanggal;
+  const newRow = [
+    tanggal, data.waktu,
+    data.open_pasca,   data.submit_pasca, data.reject_pasca,
+    data.open_praba,   data.submit_praba, data.reject_praba,
+  ];
+
+  // Upsert: cari baris dengan tanggal sama
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const dates = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = 0; i < dates.length; i++) {
+      if (_fmt(dates[i][0]) === tanggal) {
+        sheet.getRange(i + 2, 1, 1, newRow.length).setValues([newRow]);
+        sheet.getRange(i + 2, 1).setNumberFormat('@');
+        return;
+      }
+    }
+  }
+  sheet.appendRow(newRow);
+  sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('@');
+}
+
+// ── Tab Riwayat ─────────────────────────────────────────────────────────────
+function handleDetail(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName('Riwayat');
+  if (!sheet) {
+    sheet = ss.insertSheet('Riwayat');
+    sheet.appendRow(['Tanggal','Nama','Email',
+                     'Open Pasca','Submit Pasca','Reject Pasca',
+                     'Open Praba','Submit Praba','Reject Praba']);
+    sheet.getRange('A:A').setNumberFormat('@');
+  }
+
+  const tanggal = data.tanggal;
+  const rows    = data.rows || [];
+
+  // Lookup: key = "tanggal|maskedEmail" → nomor baris sheet
+  // Kolom: A=Tanggal, B=Nama, C=Email
+  const lastRow = sheet.getLastRow();
+  const lookup  = {};
+  if (lastRow >= 2) {
+    const existing = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    for (let i = 0; i < existing.length; i++) {
+      const key = _fmt(existing[i][0]) + '|' + String(existing[i][2]).trim();
+      lookup[key] = i + 2;
+    }
+  }
+
+  for (const r of rows) {
+    const email  = String(r.email || '').trim();
+    if (!email) continue;
+    const masked = maskEmail(email);
+    const key    = tanggal + '|' + masked;
+    const newRow = [
+      tanggal, r.nama || '', masked,
+      r.open_pasca   != null ? r.open_pasca   : '',
+      r.submit_pasca != null ? r.submit_pasca : '',
+      r.reject_pasca != null ? r.reject_pasca : '',
+      r.open_praba   != null ? r.open_praba   : '',
+      r.submit_praba != null ? r.submit_praba : '',
+      r.reject_praba != null ? r.reject_praba : '',
+    ];
+
+    if (lookup[key]) {
+      sheet.getRange(lookup[key], 1, 1, newRow.length).setValues([newRow]);
+      sheet.getRange(lookup[key], 1).setNumberFormat('@');
+    } else {
+      sheet.appendRow(newRow);
+      sheet.getRange(sheet.getLastRow(), 1).setNumberFormat('@');
+    }
   }
 }
 ```
@@ -231,7 +304,7 @@ Mendukung FortiClient dan VPN Windows standar.
 
 Klik **▶ Run** — log berjalan real-time di bawah.
 
-Proses untuk 50+ pencacah membutuhkan **20–30 menit**. Jangan tutup aplikasi selama berjalan.
+Proses untuk 50+ pencacah membutuhkan **3-5 menit**. Jangan tutup aplikasi selama berjalan.
 
 Setelah selesai (status **"Selesai ✓"**):
 - Klik **📂 Buka Folder Hasil** → folder `output\` terbuka di Explorer
