@@ -143,7 +143,7 @@
     }
     .ulp-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
       gap: .65rem;
     }
     .ulp-row {
@@ -184,7 +184,7 @@
     /* ── Summary Cards ──────────────────────────────── */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
       gap: 1rem;
       margin-bottom: 1.25rem;
     }
@@ -253,7 +253,7 @@
     /* ── Top Performers ─────────────────────────────── */
     .top-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(290px, 100%), 1fr));
       gap: 1rem;
       margin-bottom: 1.25rem;
     }
@@ -388,11 +388,45 @@
     .badge-err { background: #FEE2E2; color: #DC2626; font-size: .68rem; padding: .1rem .35rem; border-radius: 4px; font-weight: 700; }
     .badge-nm  { background: #F1F5F9; color: #94A3B8; font-size: .68rem; padding: .1rem .35rem; border-radius: 4px; }
 
-    /* Mobile: hide email + reject cols */
-    @media (max-width: 600px) {
-      .hide-sm { display: none; }
-      .search-box input { width: 130px; }
-      .hdr-title h1 { font-size: .9rem; }
+    /* ── Responsive ────────────────────────────────────── */
+    @media (max-width: 640px) {
+      main { padding: .75rem .65rem 1.5rem; }
+
+      /* Header */
+      header { padding: .6rem .9rem; gap: .4rem; }
+      .hdr-icon { width: 32px; height: 32px; font-size: 1.05rem; flex-shrink: 0; }
+      .hdr-title h1 { font-size: .85rem; }
+      .hdr-title p  { display: none; }
+      #lastUpdated  { display: none; }
+      .hdr-right    { gap: .35rem; }
+      .btn-text     { display: none; }
+      .btn-refresh  { padding: .35rem .5rem; min-width: 32px; justify-content: center; }
+      .btn-theme    { width: 28px; height: 28px; font-size: .88rem; }
+
+      /* Settings panel */
+      #settingsPanel { padding: .65rem .9rem; }
+
+      /* Cards — force single column below 640 px */
+      .summary-grid,
+      .top-grid     { grid-template-columns: 1fr; }
+      .ulp-grid     { grid-template-columns: 1fr; }
+
+      /* ULP filter bar */
+      .ulp-filter   { gap: .3rem; }
+      .ulp-btn      { padding: .28rem .7rem; font-size: .74rem; }
+
+      /* Filter / date row */
+      .filter-row   { gap: .3rem; }
+      .dfq-btn      { padding: .2rem .42rem; font-size: .67rem; }
+      input.dfq-input[type="date"] { font-size: .67rem; padding: .2rem .35rem; }
+      .ms-trigger   { max-width: 100%; font-size: .74rem; }
+
+      /* Table */
+      .hide-sm      { display: none; }
+      .search-box input { width: 110px; }
+      .tbl-header   { padding: .6rem .85rem; gap: .45rem; }
+      .tbl-header h2 { font-size: .88rem; }
+      .tbl-scroll   { max-height: 380px; }
     }
 
     /* ── Loading / Error ────────────────────────────── */
@@ -585,10 +619,10 @@
       <span id="themeIcon">🌙</span>
     </button>
     <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
-      ⚙️ Sumber Data
+      ⚙️ <span class="btn-text">Sumber Data</span>
     </button>
     <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
-      <span id="refreshIcon">🔄</span> Refresh
+      <span id="refreshIcon">🔄</span><span class="btn-text"> Refresh</span>
     </button>
   </div>
 </header>
