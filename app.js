@@ -1253,8 +1253,16 @@ function _closeMobileMenu() {
 function toggleSettings() {
   const p = document.getElementById('settingsPanel');
   const open = !p.classList.contains('open');
+  document.getElementById('accentPanel').classList.remove('open');
   p.classList.toggle('open', open);
   if (open) { _populateSettingsInputs(); _closeMobileMenu(); }
+}
+function toggleAccentPanel() {
+  const p = document.getElementById('accentPanel');
+  const open = !p.classList.contains('open');
+  document.getElementById('settingsPanel').classList.remove('open');
+  p.classList.toggle('open', open);
+  if (open) _closeMobileMenu();
 }
 function _populateSettingsInputs() {
   const sid = localStorage.getItem('cfg_sheet_id') || SHEET_ID;

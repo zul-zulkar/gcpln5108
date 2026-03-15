@@ -737,7 +737,7 @@
     }
 
     /* ── Settings panel smooth slide ────────────────── */
-    #settingsPanel {
+    #settingsPanel, #accentPanel {
       max-height: 0;
       overflow: hidden;
       opacity: 0;
@@ -752,6 +752,12 @@
       opacity: 1;
       padding-top: .75rem;
       padding-bottom: .75rem;
+    }
+    #accentPanel.open {
+      max-height: 120px;
+      opacity: 1;
+      padding-top: .6rem;
+      padding-bottom: .6rem;
     }
 
     /* ── Card entrance animations ───────────────────── */
