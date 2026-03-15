@@ -77,7 +77,7 @@ Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 
 ### Langkah 3 — Buat Apps Script (Opsional)
 
-Appscript ini akan membantu menambahkan data hasil scraping ke Google sheet sesuai dengan format yang ditentukan. Namun apabila tidak menggunakan Fitur ini, silakan paste hasil scraping melalui folder output yang akan dijelaskan kemudian.
+Appscript ini akan membantu menambahkan data hasil scraping ke Google sheet secara otomatis sesuai dengan format yang ditentukan. Namun apabila tidak menggunakan Fitur ini, silakan paste hasil scraping secara manual melalui folder output yang akan dijelaskan kemudian.
 
 1. Di spreadsheet, klik menu **Extensions → Apps Script**
 2. Hapus semua kode yang ada, lalu paste kode berikut:
