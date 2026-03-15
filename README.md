@@ -75,7 +75,9 @@ Tab `Utama` digunakan dashboard untuk tombol filter per ULP.
 
 ---
 
-### Langkah 3 — Buat Apps Script
+### Langkah 3 — Buat Apps Script (Opsional)
+
+Appscript ini akan membantu menambahkan data hasil scraping ke Google sheet sesuai dengan format yang ditentukan. Namun apabila tidak menggunakan Fitur ini, silakan paste hasil scraping melalui folder output yang akan dijelaskan kemudian.
 
 1. Di spreadsheet, klik menu **Extensions → Apps Script**
 2. Hapus semua kode yang ada, lalu paste kode berikut:
@@ -272,7 +274,7 @@ Jika muncul peringatan Windows SmartScreen: klik **More info** → **Run anyway*
 | **Password** | Password SSO BPS Anda |
 | **UPI** | Kode UPI wilayah, contoh: `[55]` untuk Bali |
 | **UP3** | Kode UP3 wilayah, contoh: `[55UTR]` untuk Bali Utara |
-| **URL Apps Script** | URL dari Langkah 4 di atas |
+| **URL Apps Script (Opsional)** | URL dari Langkah 4 di atas |
 
 > Pengaturan (kecuali password) **tersimpan otomatis** ke `fasih_settings.json` — tidak perlu diisi ulang saat aplikasi dibuka kembali.
 
