@@ -239,7 +239,8 @@ function handleDetail(data) {
 
 ### Langkah 1 — Salin folder FASIH_Scraper
 
-Minta folder `FASIH_Scraper` dari pengelola sistem (atau salin dari flashdisk/Google Drive).
+folder `FASIH_Scraper` dari pengelola sistem dapat diakses melalui tautan berikut :
+https://drive.google.com/drive/folders/1qM383JjE7mWTXlcTXFEeFw22YkUhwS4K?usp=sharing
 
 ```
 FASIH_Scraper\
