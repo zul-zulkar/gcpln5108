@@ -1,6 +1,8 @@
 :root {
       --primary:       #1F4E79;
       --primary-light: #2E75B6;
+      --header-from:   #1a3f6f;
+      --header-to:     #2E75B6;
       --blue:  #3B82F6;
       --purple:#8B5CF6;
       --green: #10B981;
@@ -28,7 +30,7 @@
 
     /* ── Header ─────────────────────────────────────── */
     header {
-      background: linear-gradient(135deg, #1a3f6f 0%, #2E75B6 100%);
+      background: linear-gradient(135deg, var(--header-from) 0%, var(--header-to) 100%);
       color: #fff;
       padding: 0.9rem 1.25rem;
       display: flex;
@@ -499,7 +501,7 @@
     }
 
     footer {
-      background: linear-gradient(135deg, #1a3f6f 0%, #2E75B6 100%);
+      background: linear-gradient(135deg, var(--header-from) 0%, var(--header-to) 100%);
       color: rgba(255,255,255,.92);
       padding: 2rem 1.5rem 1.5rem;
       margin-top: 2.5rem;
@@ -633,6 +635,19 @@
       flex-shrink: 0; cursor: pointer;
     }
 
+    /* ── Accent color swatches ──────────────────────────── */
+    .accent-swatch {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      border: 2.5px solid rgba(255,255,255,.3);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: transform .15s, border-color .15s;
+      padding: 0;
+    }
+    .accent-swatch:hover  { transform: scale(1.15); border-color: rgba(255,255,255,.8); }
+    .accent-swatch.active { border-color: #fff; box-shadow: 0 0 0 2.5px rgba(255,255,255,.55); transform: scale(1.08); }
+
     /* ── Dark mode (explicit toggle) ───────────────────── */
     :root[data-theme="dark"] {
       --primary:       #2E75B6;
@@ -695,7 +710,120 @@
       border: 1px solid rgba(255,255,255,.3);
       border-radius: 8px;
       cursor: pointer; font-size: 1rem;
-      transition: background .15s;
+      transition: background .15s, transform .15s;
       flex-shrink: 0;
     }
-    .btn-theme:hover { background: rgba(255,255,255,.3); }
+    .btn-theme:hover  { background: rgba(255,255,255,.3); }
+    .btn-theme:active { transform: scale(.88); }
+
+    /* ── Animations & Keyframes ─────────────────────── */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes countPop {
+      0%   { opacity: 0; transform: scale(.6) translateY(6px); }
+      70%  { transform: scale(1.08) translateY(-2px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position: 600px 0; }
+    }
+    @keyframes pulseRing {
+      0%   { box-shadow: 0 0 0 0 rgba(46,117,182,.35); }
+      70%  { box-shadow: 0 0 0 8px rgba(46,117,182,0); }
+      100% { box-shadow: 0 0 0 0 rgba(46,117,182,0); }
+    }
+
+    /* ── Settings panel smooth slide ────────────────── */
+    #settingsPanel {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+      transition: max-height .42s cubic-bezier(.4,0,.2,1),
+                  opacity    .28s ease,
+                  padding    .36s ease;
+    }
+    #settingsPanel.open {
+      max-height: 420px;
+      opacity: 1;
+      padding-top: .75rem;
+      padding-bottom: .75rem;
+    }
+
+    /* ── Card entrance animations ───────────────────── */
+    .ulp-overview {
+      animation: fadeSlideUp .38s ease both;
+    }
+    .summary-grid .s-card {
+      animation: fadeSlideUp .4s ease both;
+    }
+    .summary-grid .s-card:nth-child(2) { animation-delay: .08s; }
+    .top-grid .top-card {
+      animation: fadeSlideUp .4s ease .12s both;
+    }
+    .top-grid .top-card:nth-child(2)   { animation-delay: .2s; }
+    .chart-wrap  { animation: fadeSlideUp .4s ease .18s both; }
+    .chart-wrap + .chart-wrap { animation-delay: .25s; }
+    .tbl-card    { animation: fadeSlideUp .4s ease .28s both; }
+
+    /* ── Card hover lift ────────────────────────────── */
+    .s-card, .top-card, .chart-wrap {
+      transition: box-shadow .25s ease, transform .22s ease;
+      will-change: transform;
+    }
+    .s-card:hover   { box-shadow: 0 10px 28px rgba(0,0,0,.11); transform: translateY(-3px); }
+    .top-card:hover { box-shadow: 0 8px 22px rgba(0,0,0,.10); transform: translateY(-2px); }
+    .chart-wrap:hover { box-shadow: 0 8px 22px rgba(0,0,0,.10); transform: translateY(-2px); }
+
+    /* ── Stat number count-up entrance ─────────────── */
+    .s-stat-num { animation: countPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+    .s-stat.open   .s-stat-num { animation-delay: .1s; }
+    .s-stat.submit .s-stat-num { animation-delay: .18s; }
+    .s-stat.reject .s-stat-num { animation-delay: .26s; }
+
+    /* ── Button press feedback ──────────────────────── */
+    .btn-refresh {
+      transition: background .15s, transform .12s, box-shadow .15s;
+    }
+    .btn-refresh:active { transform: scale(.93); }
+    .ulp-btn {
+      transition: all .18s cubic-bezier(.4,0,.2,1);
+    }
+    .ulp-btn:active { transform: scale(.93); }
+    .ulp-btn.active { animation: pulseRing .5s ease; }
+    .dfq-btn  { transition: all .15s ease; }
+    .dfq-btn:active { transform: scale(.92); }
+
+    /* ── ULP row card entrance (JS sets --i) ────────── */
+    .ulp-row {
+      animation: fadeSlideUp .35s ease both;
+      animation-delay: calc(var(--i, 0) * 50ms);
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    .ulp-row:hover { transform: translateY(-1px); }
+
+    /* ── Progress bar glow on full ──────────────────── */
+    .ulp-prog-fill-p, .ulp-prog-fill-r {
+      transition: width .55s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Table row smooth highlight ─────────────────── */
+    td { transition: background .15s ease; }
+
+    /* ── Loader pulse ───────────────────────────────── */
+    .loader {
+      background: conic-gradient(var(--primary-light) 0deg, transparent 90deg);
+      border: none;
+      animation: spin .75s linear infinite;
+    }
+
+    /* ── Scroll-to-top bounce ───────────────────────── */
+    #scrollTop {
+      transition: opacity .28s ease, transform .25s cubic-bezier(.34,1.56,.64,1);
+    }
+    #scrollTop.visible { transform: translateY(0) scale(1); }
+    #scrollTop:not(.visible) { transform: translateY(14px) scale(.8); }

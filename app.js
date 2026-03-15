@@ -383,6 +383,7 @@ function render() {
 
   renderTable();
   renderChart();
+  _animateStatNumbers();
 }
 
 function ulpOverviewSection() {
@@ -396,7 +397,7 @@ function ulpOverviewSection() {
     const rr  = pct(tpr.submit, tpr.open, tpr.reject);
     const isAct = activeUlp === u;
     return `
-      <div class="ulp-row${isAct ? ' ulp-active' : ''}" onclick="filterByUlp(${idx + 1})">
+      <div class="ulp-row${isAct ? ' ulp-active' : ''}" style="--i:${idx}" onclick="filterByUlp(${idx + 1})">
         <div class="ulp-row-top">
           <span class="ulp-row-name">${u}</span>
           <span class="ulp-row-count">${uData.length} petugas</span>
@@ -1251,8 +1252,8 @@ function _closeMobileMenu() {
 }
 function toggleSettings() {
   const p = document.getElementById('settingsPanel');
-  const open = p.style.display === 'none';
-  p.style.display = open ? 'block' : 'none';
+  const open = !p.classList.contains('open');
+  p.classList.toggle('open', open);
   if (open) { _populateSettingsInputs(); _closeMobileMenu(); }
 }
 function _populateSettingsInputs() {
@@ -1280,6 +1281,104 @@ function resetSheetConfig() {
   loadData(); loadRingkasan(); loadRiwayat();
 }
 
+// ── Count-up animation ────────────────────────────────────────────────────────
+function _animateStatNumbers() {
+  document.querySelectorAll('.s-stat-num').forEach(el => {
+    const raw = parseInt(el.textContent.replace(/[.,\s]/g, ''), 10);
+    if (isNaN(raw) || raw === 0) return;
+    el.textContent = '0';
+    const dur = Math.min(700, 300 + raw * 4);
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(raw * ease).toLocaleString('id-ID');
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+// ── Accent color ──────────────────────────────────────────────────────────────
+const ACCENT_PRESETS = {
+  blue:   { from:'#1a3f6f', to:'#2E75B6', primary:'#1F4E79', light:'#2E75B6' },
+  teal:   { from:'#0a4d4d', to:'#0F9D9D', primary:'#0D6E6E', light:'#14b8a6' },
+  green:  { from:'#034d34', to:'#059669', primary:'#065F46', light:'#10b981' },
+  purple: { from:'#3b0764', to:'#7C3AED', primary:'#4C1D95', light:'#8b5cf6' },
+  rose:   { from:'#7f1d1d', to:'#e11d48', primary:'#881337', light:'#f43f5e' },
+  orange: { from:'#451a03', to:'#ea580c', primary:'#7c2d12', light:'#f97316' },
+  slate:  { from:'#0f172a', to:'#475569', primary:'#1e293b', light:'#64748b' },
+};
+
+function _darkenHex(hex, amt) {
+  const n = parseInt(hex.replace('#',''), 16);
+  const r = Math.max(0, Math.round(((n >> 16) & 255) * (1 - amt)));
+  const g = Math.max(0, Math.round(((n >>  8) & 255) * (1 - amt)));
+  const b = Math.max(0, Math.round(( n        & 255) * (1 - amt)));
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+
+function _applyAccentVars(from, to, primary, light) {
+  const r = document.documentElement;
+  r.style.setProperty('--header-from',   from);
+  r.style.setProperty('--header-to',     to);
+  r.style.setProperty('--primary',       primary);
+  r.style.setProperty('--primary-light', light);
+}
+
+function _markActiveSwatch(key) {
+  document.querySelectorAll('.accent-swatch').forEach(el =>
+    el.classList.toggle('active', el.dataset.accent === key));
+}
+
+function loadAccentConfig() {
+  const saved = localStorage.getItem('cfg_accent');
+  if (!saved) return;
+  try {
+    const data = JSON.parse(saved);
+    if (data.preset && ACCENT_PRESETS[data.preset]) {
+      const p = ACCENT_PRESETS[data.preset];
+      _applyAccentVars(p.from, p.to, p.primary, p.light);
+      _markActiveSwatch(data.preset);
+    } else if (data.custom) {
+      const hex = data.custom;
+      _applyAccentVars(_darkenHex(hex, .4), hex, _darkenHex(hex, .2), hex);
+      const el = document.getElementById('accentCustomColor');
+      if (el) el.value = hex;
+      document.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('active'));
+    }
+  } catch(e) {}
+}
+
+function selectAccent(preset) {
+  const p = ACCENT_PRESETS[preset];
+  if (!p) return;
+  _applyAccentVars(p.from, p.to, p.primary, p.light);
+  localStorage.setItem('cfg_accent', JSON.stringify({ preset }));
+  _markActiveSwatch(preset);
+}
+
+function resetAccent() {
+  localStorage.removeItem('cfg_accent');
+  const p = ACCENT_PRESETS.blue;
+  _applyAccentVars(p.from, p.to, p.primary, p.light);
+  _markActiveSwatch('blue');
+  const el = document.getElementById('accentCustomColor');
+  if (el) el.value = '#1F4E79';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const picker = document.getElementById('accentCustomColor');
+  if (picker) {
+    picker.addEventListener('input', function() {
+      const hex = this.value;
+      _applyAccentVars(_darkenHex(hex, .4), hex, _darkenHex(hex, .2), hex);
+      localStorage.setItem('cfg_accent', JSON.stringify({ custom: hex }));
+      document.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('active'));
+    });
+  }
+});
+
 // ── Scroll-to-top ─────────────────────────────────────────────────────────────
 window.addEventListener('scroll', () => {
   document.getElementById('scrollTop').classList.toggle('visible', window.scrollY > 300);
@@ -1288,6 +1387,7 @@ window.addEventListener('scroll', () => {
 // ── Init ──────────────────────────────────────────────────────────────────────
 _loadSheetConfig();
 _populateSettingsInputs();   // pre-fill URL input meski panel settings belum dibuka
+loadAccentConfig();           // apply saved accent color
 setInterval(loadData,    5 * 60 * 1000);
 setInterval(loadRingkasan,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);

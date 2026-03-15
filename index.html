@@ -48,7 +48,7 @@
   </div>
 </header>
 
-<div id="settingsPanel" style="display:none; background:#1a3f6f; border-top:1px solid rgba(255,255,255,.15); padding:.75rem 1.25rem;">
+<div id="settingsPanel" style="background:var(--header-from); border-top:1px solid rgba(255,255,255,.15);">
   <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; max-width:900px;">
     <div style="flex:1; min-width:260px;">
       <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
@@ -67,6 +67,31 @@
       </button>
     </div>
     <div id="cfgMsg" style="font-size:.75rem; color:rgba(255,255,255,.7); width:100%;"></div>
+
+    <!-- Accent color row -->
+    <div style="width:100%; border-top:1px solid rgba(255,255,255,.12); padding-top:.6rem;">
+      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.45rem;">
+        Warna Aksen
+      </label>
+      <div style="display:flex; flex-wrap:wrap; gap:.45rem; align-items:center;">
+        <button class="accent-swatch" data-accent="blue"   onclick="selectAccent('blue')"   style="background:#1F4E79;" title="Biru (Default)"></button>
+        <button class="accent-swatch" data-accent="teal"   onclick="selectAccent('teal')"   style="background:#0D6E6E;" title="Teal"></button>
+        <button class="accent-swatch" data-accent="green"  onclick="selectAccent('green')"  style="background:#065F46;" title="Hijau"></button>
+        <button class="accent-swatch" data-accent="purple" onclick="selectAccent('purple')" style="background:#4C1D95;" title="Ungu"></button>
+        <button class="accent-swatch" data-accent="rose"   onclick="selectAccent('rose')"   style="background:#881337;" title="Merah"></button>
+        <button class="accent-swatch" data-accent="orange" onclick="selectAccent('orange')" style="background:#7c2d12;" title="Oranye"></button>
+        <button class="accent-swatch" data-accent="slate"  onclick="selectAccent('slate')"  style="background:#1e293b;" title="Abu"></button>
+        <label style="display:flex; align-items:center; gap:.35rem; cursor:pointer; margin-left:.2rem;">
+          <input type="color" id="accentCustomColor" value="#1F4E79"
+            style="width:26px; height:26px; padding:1px; border:2px solid rgba(255,255,255,.35);
+                   border-radius:6px; cursor:pointer; background:none;" title="Warna kustom" />
+          <span style="color:rgba(255,255,255,.7); font-size:.7rem;">Kustom</span>
+        </label>
+        <button class="btn-refresh" onclick="resetAccent()" style="background:rgba(255,255,255,.12); font-size:.7rem; padding:.2rem .55rem;" title="Kembali ke warna default">
+          ↺ Reset
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
