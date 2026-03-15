@@ -830,8 +830,8 @@ function _gsheetRiwayatCB(data) {
       const c  = row.c || [];
       const cv = i => (i >= 0 && c[i] && c[i].v !== null && c[i].v !== undefined) ? c[i].v : null;
       const iTgl = ci('tanggal') >= 0 ? ci('tanggal') : 0;
-      const iEm  = ci('email')   >= 0 ? ci('email')   : 1;
-      const iNm  = ci('nama')    >= 0 ? ci('nama')    : 2;
+      const iEm  = ci('email')   >= 0 ? ci('email')   : 2;
+      const iNm  = ci('nama')    >= 0 ? ci('nama')    : 1;
       if (!cv(iTgl) && !cv(iEm)) return;
       riwayatData.push({
         tanggal:      _parseGvizDate(c[iTgl]),
@@ -1287,6 +1287,7 @@ window.addEventListener('scroll', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 _loadSheetConfig();
+_populateSettingsInputs();   // pre-fill URL input meski panel settings belum dibuka
 setInterval(loadData,    5 * 60 * 1000);
 setInterval(loadRingkasan,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);
