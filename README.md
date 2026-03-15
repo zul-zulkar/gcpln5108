@@ -1,4 +1,4 @@
-# Panduan — FASIH Scraper & Dashboard BPS Bali Utara
+# Panduan — FASIH Scraper & Dashboard BPS Kabupaten Buleleng
 
 Sistem ini terdiri dari dua komponen:
 
