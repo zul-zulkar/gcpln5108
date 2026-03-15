@@ -741,23 +741,24 @@
       max-height: 0;
       overflow: hidden;
       opacity: 0;
-      padding-left: 1.25rem;
-      padding-right: 1.25rem;
+      padding: 0 1.25rem;
+      border-top: 1px solid transparent;
       transition: max-height .42s cubic-bezier(.4,0,.2,1),
                   opacity    .28s ease,
-                  padding    .36s ease;
+                  padding    .36s ease,
+                  border-color .3s ease;
     }
     #settingsPanel.open {
       max-height: 420px;
       opacity: 1;
-      padding-top: .75rem;
-      padding-bottom: .75rem;
+      padding: .75rem 1.25rem;
+      border-top-color: rgba(255,255,255,.15);
     }
     #accentPanel.open {
       max-height: 120px;
       opacity: 1;
-      padding-top: .6rem;
-      padding-bottom: .6rem;
+      padding: .6rem 1.25rem;
+      border-top-color: rgba(255,255,255,.15);
     }
 
     /* ── Card entrance animations ───────────────────── */
