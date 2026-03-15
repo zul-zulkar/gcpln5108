@@ -230,6 +230,7 @@ function filterByUlp(idx) {
   render();
   buildMsOptions();
   refreshRiwayatViz();
+  renderRingkasan();
 }
 
 // Helper: riwayatData filtered by active ULP
@@ -237,6 +238,30 @@ function _ulpRiwayat() {
   return activeUlp === 'all'
     ? riwayatData
     : riwayatData.filter(d => (ulpMap[d.email.toLowerCase()] || '') === activeUlp);
+}
+
+// Helper: ringkasan source — pakai ringkasanData saat "Semua ULP",
+// atau agregasi riwayatData per tanggal saat ULP tertentu dipilih
+function _getRingkasanSource() {
+  if (activeUlp === 'all') return ringkasanData;
+  const byDate = {};
+  _ulpRiwayat().forEach(d => {
+    if (!d.tanggal) return;
+    if (!byDate[d.tanggal]) byDate[d.tanggal] = {
+      tanggal: d.tanggal, waktu: '',
+      open_pasca: 0, submit_pasca: 0, reject_pasca: 0,
+      open_praba: 0, submit_praba: 0, reject_praba: 0,
+    };
+    const row = byDate[d.tanggal];
+    row.open_pasca   += n(d.open_pasca);
+    row.submit_pasca += n(d.submit_pasca);
+    row.reject_pasca += n(d.reject_pasca);
+    row.open_praba   += n(d.open_praba);
+    row.submit_praba += n(d.submit_praba);
+    row.reject_praba += n(d.reject_praba);
+  });
+  return Object.values(byDate)
+    .sort((a, b) => parseDMY(a.tanggal).localeCompare(parseDMY(b.tanggal)));
 }
 
 function totals(arr, sfx) {
@@ -711,8 +736,8 @@ function renderRingkasan() {
     return;
   }
 
-  // Apply date filter
-  const filt        = applyDateFilter(ringkasanData, ringkasanFilter);
+  // Apply ULP filter then date filter
+  const filt        = applyDateFilter(_getRingkasanSource(), ringkasanFilter);
   // Chart: newest first (left)
   const display     = [...filt].reverse();
   const labels      = display.map(d => d.tanggal);
@@ -740,7 +765,7 @@ function renderRingkasan() {
 
   sec.innerHTML = `
     <div class="chart-wrap" style="margin-top:1.25rem">
-      <h3>📅 Tren Ringkasan</h3>
+      <h3>📅 Tren Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.72rem;font-weight:500;color:var(--muted)">· ${activeUlp}</span>` : ''}</h3>
       <div class="filter-row">
         <div class="date-filter-bar">
           ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
@@ -760,7 +785,7 @@ function renderRingkasan() {
       </div>
     </div>
     <div class="tbl-card" style="margin-bottom:1.25rem">
-      <div class="tbl-header"><h2>Riwayat Ringkasan</h2></div>
+      <div class="tbl-header"><h2>Riwayat Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.78rem;font-weight:400;color:var(--muted)">· ${activeUlp}</span>` : ''}</h2></div>
       <div class="tbl-scroll" style="max-height:280px">
         <table>
           <thead>
