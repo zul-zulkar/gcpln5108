@@ -47,8 +47,9 @@ let ringkasanTblSortDir   = 'desc';
 let riwayatTblSortCol  = 'tanggal';
 let riwayatTblSortDir  = 'desc';
 let _msOutsideListenerAttached = false;
-let drilldownEmail = null;   // email of bar-chart-clicked enumerator, null = no drill
-let alertThreshold = 80;     // % submit rate below which enumerator is flagged
+let drilldownEmail = null;        // email of bar-chart-clicked enumerator, null = no drill
+let alertThresholdPasca = 0;      // dynamic default = overall pct pasca for current ULP
+let alertThresholdPraba = 0;      // dynamic default = overall pct praba for current ULP
 let alertPanelOpen = false;
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
@@ -1357,11 +1358,21 @@ function exportRiwayat() {
 }
 
 // ── Alert threshold ────────────────────────────────────────────────────────────
+function _computeDefaultThresholds() {
+  const display = getDisplayData();
+  const tP = totals(display, 'pasca');
+  const tR = totals(display, 'praba');
+  return {
+    pasca: parseFloat(pct(tP.submit, tP.open, tP.reject)),
+    praba: parseFloat(pct(tR.submit, tR.open, tR.reject)),
+  };
+}
+
 function _getBelowThreshold() {
-  return allData.filter(d => {
+  return getDisplayData().filter(d => {
     const rp = parseFloat(pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)));
     const rr = parseFloat(pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
-    return rp < alertThreshold || rr < alertThreshold;
+    return rp < alertThresholdPasca || rr < alertThresholdPraba;
   }).map(d => ({
     nama:      toProper(d.nama_pasca || d.nama_praba || ''),
     ulp:       d.ulp || '',
@@ -1372,15 +1383,29 @@ function _getBelowThreshold() {
 
 function _refreshAlertBadge() {
   if (!allData.length) return;
+
+  // Recompute dynamic defaults based on current ULP filter
+  const defs = _computeDefaultThresholds();
+  const inpP = document.getElementById('alertThresholdPasca');
+  const inpR = document.getElementById('alertThresholdPraba');
+
+  // Update threshold values & inputs — skip if user is actively editing that input
+  if (!inpP || document.activeElement !== inpP) {
+    alertThresholdPasca = defs.pasca;
+    if (inpP) inpP.value = defs.pasca.toFixed(1);
+  }
+  if (!inpR || document.activeElement !== inpR) {
+    alertThresholdPraba = defs.praba;
+    if (inpR) inpR.value = defs.praba.toFixed(1);
+  }
+
   const below = _getBelowThreshold();
   const wrap  = document.getElementById('alertWrap');
   const badge = document.getElementById('alertBadge');
   if (!wrap || !badge) return;
-  wrap.style.display   = '';
-  badge.textContent    = below.length;
-  badge.className      = 'alert-badge' + (below.length > 0 ? ' alert-badge-warn' : '');
-  const inp = document.getElementById('alertThresholdInput');
-  if (inp && inp !== document.activeElement) inp.value = alertThreshold;
+  wrap.style.display = '';
+  badge.textContent  = below.length;
+  badge.className    = 'alert-badge' + (below.length > 0 ? ' alert-badge-warn' : '');
   if (alertPanelOpen) _buildAlertList(below);
 }
 
@@ -1396,7 +1421,7 @@ function _buildAlertList(below) {
   const list = document.getElementById('alertList');
   if (!list) return;
   if (!below.length) {
-    list.innerHTML = `<div class="alert-list-empty"><i class="bi bi-check-circle-fill"></i> Semua petugas memenuhi threshold ${alertThreshold}%</div>`;
+    list.innerHTML = `<div class="alert-list-empty"><i class="bi bi-check-circle-fill"></i> Semua petugas memenuhi threshold saat ini</div>`;
     return;
   }
   list.innerHTML = below.map(d => `
@@ -1404,16 +1429,19 @@ function _buildAlertList(below) {
       <div class="alert-item-nama">${d.nama}</div>
       <div class="alert-item-ulp">${d.ulp || '—'}</div>
       <div class="alert-item-rates">
-        <span class="alert-rate-badge ${parseFloat(d.pct_pasca) < alertThreshold ? 'warn' : 'ok'}">Pasca: ${d.pct_pasca}%</span>
-        <span class="alert-rate-badge ${parseFloat(d.pct_praba) < alertThreshold ? 'warn' : 'ok'}">Praba: ${d.pct_praba}%</span>
+        <span class="alert-rate-badge ${parseFloat(d.pct_pasca) < alertThresholdPasca ? 'warn' : 'ok'}">Pasca: ${d.pct_pasca}%</span>
+        <span class="alert-rate-badge ${parseFloat(d.pct_praba) < alertThresholdPraba ? 'warn' : 'ok'}">Praba: ${d.pct_praba}%</span>
       </div>
     </div>`).join('');
 }
 
-function updateAlertThreshold(val) {
-  const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
-  alertThreshold = v;
-  localStorage.setItem('cfg_alert_threshold', String(v));
+function updateAlertThresholdPasca(val) {
+  alertThresholdPasca = Math.max(0, Math.min(100, parseFloat(val) || 0));
+  _refreshAlertBadge();
+}
+
+function updateAlertThresholdPraba(val) {
+  alertThresholdPraba = Math.max(0, Math.min(100, parseFloat(val) || 0));
   _refreshAlertBadge();
 }
 
@@ -1654,7 +1682,7 @@ window.addEventListener('scroll', () => {
 _loadSheetConfig();
 _populateSettingsInputs();   // pre-fill URL input meski panel settings belum dibuka
 loadAccentConfig();           // apply saved accent color
-alertThreshold = parseInt(localStorage.getItem('cfg_alert_threshold') || '80', 10);
+// alertThreshold defaults are computed dynamically from data in _refreshAlertBadge()
 setInterval(loadData,    5 * 60 * 1000);
 setInterval(loadRingkasan,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);
