@@ -685,8 +685,30 @@ function renderOneChart(sfx) {
       _renderDrilldownBanner(toProper(d[`nama_${sfx}`] || d.nama_pasca || d.nama_praba || email));
       renderTable();
       renderChart();
+      // Scroll chart lain ke bar yang sama setelah render selesai
+      const otherSfx = sfx === 'pasca' ? 'praba' : 'pasca';
+      setTimeout(() => _scrollChartToEmail(otherSfx, email), 60);
     }
   });
+}
+
+function _scrollChartToEmail(sfx, email) {
+  const isPasca = sfx === 'pasca';
+  const wrap = document.getElementById(isPasca ? 'chartWrapPasca' : 'chartWrapPraba');
+  if (!wrap) return;
+  const scrollEl = wrap.parentElement; // .chart-scroll
+  if (!scrollEl) return;
+
+  const sorted = [...getDisplayData()]
+    .filter(d => typeof d[`submit_${sfx}`] === 'number' || d[`submit_${sfx}`] === 0)
+    .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]));
+
+  const idx = sorted.findIndex(d => (d.email_pasca || d.email_praba || '').toLowerCase() === email);
+  if (idx < 0) return;
+
+  const chartW   = Math.max(480, sorted.length * 90);
+  const barCenter = (idx + 0.5) * (chartW / sorted.length);
+  scrollEl.scrollTo({ left: barCenter - scrollEl.clientWidth / 2, behavior: 'smooth' });
 }
 
 // ── Laporan Ringkasan ────────────────────────────────────────────────────────────
