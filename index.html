@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard Monitoring FASIH – BPS Kabupaten Buleleng</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css" />
 
   <script>
@@ -18,7 +22,7 @@
 
 <header>
   <div class="hdr-left">
-    <div class="hdr-icon">📊</div>
+    <div class="hdr-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
     <div class="hdr-title">
       <h1>Dashboard Monitoring GC PLN</h1>
       <p>BPS Kabupaten Buleleng &nbsp;·&nbsp; [55UTR] &nbsp;·&nbsp; Pascabayar &amp; Prabayar</p>
@@ -33,19 +37,35 @@
     <div class="hdr-group">
       <span id="lastUpdated">–</span>
       <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
-        <span id="refreshIcon">🔄</span><span class="btn-text"> Refresh</span>
+        <span id="refreshIcon"><i class="bi bi-arrow-clockwise"></i></span><span class="btn-text"> Refresh</span>
       </button>
     </div>
     <div class="hdr-sep"></div>
     <div class="hdr-group">
+      <div class="alert-wrap" id="alertWrap" style="display:none">
+        <button class="btn-refresh" id="btnAlert" onclick="toggleAlertPanel()" title="Petugas di bawah threshold submit rate">
+          <i class="bi bi-bell"></i> <span class="alert-badge" id="alertBadge">0</span>
+        </button>
+        <div class="alert-dropdown" id="alertDropdown" style="display:none">
+          <div class="alert-dropdown-header">
+            <span><i class="bi bi-exclamation-triangle"></i> Di Bawah Threshold</span>
+            <button class="alert-dd-close" onclick="toggleAlertPanel()"><i class="bi bi-x"></i></button>
+          </div>
+          <div class="alert-threshold-row">
+            <label>Threshold: <input type="number" id="alertThresholdInput" min="0" max="100" value="80"
+              oninput="updateAlertThreshold(this.value)"> %</label>
+          </div>
+          <div class="alert-list" id="alertList"></div>
+        </div>
+      </div>
       <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
-        ⚙️ <span class="btn-text">Sumber Data</span>
+        <i class="bi bi-sliders"></i> <span class="btn-text">Sumber Data</span>
       </button>
       <button class="btn-theme" id="btnAccent" onclick="toggleAccentPanel()" title="Ubah warna aksen">
-        🎨
+        <i class="bi bi-palette"></i>
       </button>
       <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
-        <span id="themeIcon">🌙</span>
+        <span id="themeIcon"><i class="bi bi-moon"></i></span>
       </button>
     </div>
   </div>
@@ -63,10 +83,10 @@
     </div>
     <div style="display:flex; gap:.5rem; align-items:center;">
       <button class="btn-refresh" onclick="saveSheetConfig()" style="background:rgba(16,185,129,.8); border-color:rgba(16,185,129,.9);">
-        💾 Simpan &amp; Muat
+        <i class="bi bi-floppy"></i> Simpan &amp; Muat
       </button>
       <button class="btn-refresh" onclick="resetSheetConfig()" style="background:rgba(255,255,255,.12);" title="Kembali ke sumber data default">
-        ↺ Default
+        <i class="bi bi-arrow-counterclockwise"></i> Default
       </button>
     </div>
     <div id="cfgMsg" style="font-size:.75rem; color:rgba(255,255,255,.7); width:100%;"></div>
@@ -75,7 +95,7 @@
 
 <div id="accentPanel" style="background:var(--header-from);">
   <div style="display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; max-width:900px;">
-    <span style="color:rgba(255,255,255,.75); font-size:.78rem; font-weight:700; white-space:nowrap;">🎨 Warna Aksen</span>
+    <span style="color:rgba(255,255,255,.75); font-size:.78rem; font-weight:700; white-space:nowrap;"><i class="bi bi-palette"></i> Warna Aksen</span>
     <div style="display:flex; flex-wrap:wrap; gap:.45rem; align-items:center;">
       <button class="accent-swatch" data-accent="blue"   onclick="selectAccent('blue')"   style="background:#1F4E79;" title="Biru (Default)"></button>
       <button class="accent-swatch" data-accent="teal"   onclick="selectAccent('teal')"   style="background:#0D6E6E;" title="Teal"></button>
@@ -92,7 +112,7 @@
       <span style="color:rgba(255,255,255,.7); font-size:.72rem;">Kustom</span>
     </label>
     <button class="btn-refresh" onclick="resetAccent()" style="background:rgba(255,255,255,.12); font-size:.72rem; padding:.22rem .6rem;" title="Kembali ke warna default">
-      ↺ Reset
+      <i class="bi bi-arrow-counterclockwise"></i> Reset
     </button>
   </div>
 </div>
@@ -112,7 +132,7 @@
 <footer>
   <div class="footer-inner">
     <div class="footer-logo-row">
-      <div class="footer-logo-icon">📊</div>
+      <div class="footer-logo-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
       <div class="footer-title">
         Dashboard Monitoring
         <span>GC PLN</span>
@@ -123,10 +143,11 @@
   </div>
 </footer>
 
-<button id="scrollTop" title="Ke atas" onclick="window.scrollTo({top:0,behavior:'smooth'})">&#8679;</button>
+<button id="scrollTop" title="Ke atas" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="bi bi-chevron-up"></i></button>
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

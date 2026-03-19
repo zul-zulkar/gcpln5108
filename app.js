@@ -47,13 +47,16 @@ let ringkasanTblSortDir   = 'desc';
 let riwayatTblSortCol  = 'tanggal';
 let riwayatTblSortDir  = 'desc';
 let _msOutsideListenerAttached = false;
+let drilldownEmail = null;   // email of bar-chart-clicked enumerator, null = no drill
+let alertThreshold = 80;     // % submit rate below which enumerator is flagged
+let alertPanelOpen = false;
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
 function loadData() {
   const btn  = document.getElementById('btnRefresh');
   const icon = document.getElementById('refreshIcon');
   btn.classList.add('loading');
-  icon.textContent = '⏳';
+  icon.innerHTML = '<i class="bi bi-arrow-clockwise spin-icon"></i>';
   document.getElementById('lastUpdated').textContent = 'Memuat…';
   document.getElementById('errBox').innerHTML = '';
 
@@ -75,11 +78,11 @@ function _loadMainStats() {
   script.src = GVZ_BASE();
   script.onerror = () => {
     document.getElementById('errBox').innerHTML =
-      `<div class="err-box">❌ Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
+      `<div class="err-box"><i class="bi bi-x-circle-fill"></i> Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
     document.getElementById('lastUpdated').textContent = 'Gagal';
     const btn = document.getElementById('btnRefresh');
     btn.classList.remove('loading');
-    document.getElementById('refreshIcon').textContent = '🔄';
+    document.getElementById('refreshIcon').innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
   };
   document.head.appendChild(script);
 }
@@ -190,11 +193,11 @@ function _gsheetCB(data) {
     _refreshTimestamp();
   } catch (e) {
     document.getElementById('errBox').innerHTML =
-      `<div class="err-box">❌ Gagal memproses data: <strong>${e.message}</strong></div>`;
+      `<div class="err-box"><i class="bi bi-x-circle-fill"></i> Gagal memproses data: <strong>${e.message}</strong></div>`;
     document.getElementById('lastUpdated').textContent = 'Error';
   } finally {
     btn.classList.remove('loading');
-    icon.textContent = '🔄';
+    icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
   }
 }
 
@@ -225,6 +228,9 @@ function getDisplayData() {
 }
 
 function filterByUlp(idx) {
+  drilldownEmail = null;
+  const old = document.getElementById('drilldownBanner');
+  if (old) old.remove();
   activeUlp = idx === 0 ? 'all' : (ulpList[idx - 1] || 'all');
   riwayatSelectedEmails = new Set(['__all__']); // reset pencacah selection when ULP changes
   render();
@@ -346,35 +352,42 @@ function render() {
     ${ulpOverviewSection()}
 
     <!-- Summary Cards -->
+    <div class="section-title">Ringkasan Statistik</div>
     <div class="summary-grid">
       ${summaryCard('pasca', 'PASCABAYAR', tPasca, display.length)}
       ${summaryCard('praba', 'PRABAYAR',   tPraba, display.length)}
     </div>
 
     <!-- Top Submitters -->
+    <div class="section-title">Peringkat Petugas</div>
     <div class="top-grid">
-      ${topCard('pasca', '🏆 Top Submit – Pascabayar')}
-      ${topCard('praba', '🏆 Top Submit – Prabayar')}
+      ${topCard('pasca', '<i class="bi bi-trophy"></i> Top Submit – Pascabayar')}
+      ${topCard('praba', '<i class="bi bi-trophy"></i> Top Submit – Prabayar')}
     </div>
 
-    <!-- Charts -->
-    <div class="chart-wrap">
-      <h3>📈 Submit vs Open – Pascabayar</h3>
-      <div class="chart-scroll">
-        <div class="chart-inner" id="chartWrapPasca"><canvas id="chartPasca"></canvas></div>
+    <!-- Charts (side by side) -->
+    <div class="section-title">Visualisasi Data</div>
+    <div class="chart-grid">
+      <div class="chart-wrap">
+        <h3>Submit vs Open – Pascabayar</h3>
+        <div class="chart-scroll">
+          <div class="chart-inner" id="chartWrapPasca"><canvas id="chartPasca"></canvas></div>
+        </div>
       </div>
-    </div>
-    <div class="chart-wrap">
-      <h3>📈 Submit vs Open – Prabayar</h3>
-      <div class="chart-scroll">
-        <div class="chart-inner" id="chartWrapPraba"><canvas id="chartPraba"></canvas></div>
+      <div class="chart-wrap">
+        <h3>Submit vs Open – Prabayar</h3>
+        <div class="chart-scroll">
+          <div class="chart-inner" id="chartWrapPraba"><canvas id="chartPraba"></canvas></div>
+        </div>
       </div>
     </div>
 
     <!-- Table -->
+    <div class="section-title">Data Detail</div>
     <div class="tbl-card">
       <div class="tbl-header">
         <h2>Detail Rekap &nbsp;<span id="tblCount"></span></h2>
+        <button class="btn-export-sm" onclick="exportDetail()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button>
         <div class="search-box">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -409,6 +422,7 @@ function render() {
   renderTable();
   renderChart();
   _animateStatNumbers();
+  _refreshAlertBadge();
 }
 
 function ulpOverviewSection() {
@@ -513,6 +527,13 @@ function renderTable() {
     return !q || nama.includes(q) || email.includes(q);
   });
 
+  // Drill-down: keep only the clicked enumerator
+  if (drilldownEmail) {
+    filtered = filtered.filter(d =>
+      (d.email_pasca || d.email_praba || '').toLowerCase() === drilldownEmail
+    );
+  }
+
   // Sort
   filtered.sort((a, b) => {
     const va = a[sortCol], vb = b[sortCol];
@@ -536,7 +557,9 @@ function renderTable() {
   body.innerHTML = filtered.map((d, i) => {
     const namaRaw = d.nama_pasca || d.nama_praba;
     const nama    = toProper(namaRaw);
-    return `<tr>
+    const email   = (d.email_pasca || d.email_praba || '').toLowerCase();
+    const isDrill = drilldownEmail && email === drilldownEmail;
+    return `<tr${isDrill ? ' class="row-drilldown"' : ''}>
       <td class="td-no col-freeze-no">${i + 1}</td>
       <td class="td-nama col-nama" title="${nama}">${nama}</td>
       <td class="td-pasca">${fmtColored(d.open_pasca,   'n-open')}</td>
@@ -547,6 +570,12 @@ function renderTable() {
       <td class="td-praba hide-sm">${fmtColored(d.reject_praba, 'n-reject')}</td>
     </tr>`;
   }).join('');
+
+  // Scroll drilldown row into view
+  if (drilldownEmail) {
+    const drillRow = body.querySelector('.row-drilldown');
+    if (drillRow) drillRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   // Highlight sort column header
   document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
@@ -582,6 +611,14 @@ function renderOneChart(sfx) {
   const rgb    = isPasca ? '59,130,246' : '139,92,246';
   const title  = isPasca ? 'Pascabayar' : 'Prabayar';
 
+  // Drilldown: dim all bars except the selected one
+  const submitColors = drilldownEmail
+    ? sorted.map(d => (d.email_pasca || d.email_praba || '').toLowerCase() === drilldownEmail ? `rgba(${rgb},0.92)` : `rgba(${rgb},0.15)`)
+    : `rgba(${rgb},0.85)`;
+  const openColors = drilldownEmail
+    ? sorted.map(d => (d.email_pasca || d.email_praba || '').toLowerCase() === drilldownEmail ? `rgba(${rgb},0.45)` : `rgba(${rgb},0.07)`)
+    : `rgba(${rgb},0.25)`;
+
   ctx.width  = chartW;
   ctx.height = 320;
 
@@ -593,13 +630,13 @@ function renderOneChart(sfx) {
         {
           label: `Submit ${title}`,
           data: sorted.map(d => n(d[`submit_${sfx}`])),
-          backgroundColor: `rgba(${rgb},0.85)`,
+          backgroundColor: submitColors,
           borderRadius: 4,
         },
         {
           label: `Open ${title}`,
           data: sorted.map(d => n(d[`open_${sfx}`])),
-          backgroundColor: `rgba(${rgb},0.25)`,
+          backgroundColor: openColors,
           borderRadius: 4,
         },
       ],
@@ -607,6 +644,10 @@ function renderOneChart(sfx) {
     options: {
       responsive: false,
       maintainAspectRatio: false,
+      animation: {
+        duration: 380,
+        easing: 'easeInOutQuart',
+      },
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
         tooltip: {
@@ -615,6 +656,9 @@ function renderOneChart(sfx) {
             label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}`
           }
         }
+      },
+      onHover: (_evt, elements, chart) => {
+        chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
       },
       scales: {
         x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
@@ -625,6 +669,24 @@ function renderOneChart(sfx) {
 
   if (isPasca) chartPasca = inst;
   else         chartPraba = inst;
+
+  // Native click listener — pakai _active (elemen yg di-hover) karena getElementsAtEventForMode
+  // tidak akurat untuk canvas fixed-size di dalam scroll container
+  ctx.addEventListener('click', function() {
+    const active = inst._active || inst.getActiveElements();
+    if (!active || !active.length) return;
+    const d = sorted[active[0].index];
+    if (!d) return;
+    const email = (d.email_pasca || d.email_praba || '').toLowerCase();
+    if (drilldownEmail === email) {
+      clearDrilldown();
+    } else {
+      drilldownEmail = email;
+      _renderDrilldownBanner(toProper(d[`nama_${sfx}`] || d.nama_pasca || d.nama_praba || email));
+      renderTable();
+      renderChart();
+    }
+  });
 }
 
 // ── Laporan Ringkasan ────────────────────────────────────────────────────────────
@@ -764,28 +826,29 @@ function renderRingkasan() {
     `<button class="dfq-btn${ringkasanActiveQuick === d ? ' active' : ''}" onclick="setRingkasanQuickFilter(${d})">${lbl}</button>`;
 
   sec.innerHTML = `
-    <div class="chart-wrap" style="margin-top:1.25rem">
-      <h3>📅 Tren Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.72rem;font-weight:500;color:var(--muted)">· ${activeUlp}</span>` : ''}</h3>
-      <div class="filter-row">
-        <div class="date-filter-bar">
-          ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
-          <span class="dfq-sep">|</span>
-          <input type="date" class="dfq-input" id="ringkasanFrom" value="${ringkasanFilter.from}"
-            onchange="setRingkasanDateRange(this.value,document.getElementById('ringkasanTo').value)">
-          <span class="dfq-sep">–</span>
-          <input type="date" class="dfq-input" id="ringkasanTo" value="${ringkasanFilter.to}"
-            onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)">
+    <div class="section-title" style="margin-top:1.75rem">Tren Harian</div>
+    <div class="combo-panel">
+      <div class="combo-chart">
+        <h3>Tren Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.72rem;font-weight:500;text-transform:none;letter-spacing:0">· ${activeUlp}</span>` : ''}</h3>
+        <div class="filter-row">
+          <div class="date-filter-bar">
+            ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
+            <span class="dfq-sep">|</span>
+            <input type="date" class="dfq-input" id="ringkasanFrom" value="${ringkasanFilter.from}"
+              onchange="setRingkasanDateRange(this.value,document.getElementById('ringkasanTo').value)">
+            <span class="dfq-sep">–</span>
+            <input type="date" class="dfq-input" id="ringkasanTo" value="${ringkasanFilter.to}"
+              onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)">
+          </div>
+          <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Reset filter tanggal" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
         </div>
-        <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Reset filter tanggal" style="margin-left:.25rem">↺ Reset</button>
-      </div>
-      <div class="chart-scroll">
-        <div class="chart-inner" style="min-width:${minWH}px;width:100%;height:300px">
-          <canvas id="chartRingkasan"></canvas>
+        <div class="chart-scroll">
+          <div class="chart-inner" style="min-width:${minWH}px;width:100%;height:300px">
+            <canvas id="chartRingkasan"></canvas>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="tbl-card" style="margin-bottom:1.25rem">
-      <div class="tbl-header"><h2>Riwayat Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.78rem;font-weight:400;color:var(--muted)">· ${activeUlp}</span>` : ''}</h2></div>
+      <div class="tbl-header"><h2>Riwayat Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.78rem;font-weight:400;color:var(--muted)">· ${activeUlp}</span>` : ''}</h2><button class="btn-export-sm" onclick="exportRingkasan()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button></div>
       <div class="tbl-scroll" style="max-height:280px">
         <table>
           <thead>
@@ -894,15 +957,17 @@ function renderRiwayat() {
     `<button class="dfq-btn${riwayatActiveQuick === d ? ' active' : ''}" onclick="setRiwayatQuickFilter(${d})">${lbl}</button>`;
 
   sec.innerHTML = `
-    <div class="chart-wrap" style="margin-top:1.25rem">
-      <h3 style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
-        👤 Progres Ringkasan per Pencacah
-        <select onchange="riwayatMetric=this.value;refreshRiwayatViz()"
-          style="font-size:.82rem;padding:.28rem .55rem;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text);cursor:pointer">
-          ${metricOptHtml}
-        </select>
-      </h3>
-      <div class="filter-row" style="margin-top:.6rem">
+    <div class="section-title" style="margin-top:1.75rem">Progres Per Pencacah</div>
+    <div class="combo-panel">
+      <div class="combo-chart">
+        <h3 style="text-transform:none;letter-spacing:0;font-size:.82rem">
+          Progres Ringkasan per Pencacah
+          <select onchange="riwayatMetric=this.value;refreshRiwayatViz()"
+            style="font-size:.8rem;padding:.25rem .5rem;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-weight:600">
+            ${metricOptHtml}
+          </select>
+        </h3>
+        <div class="filter-row" style="margin-top:.5rem">
         <div class="date-filter-bar">
           ${mkQR(0,'Semua')}${mkQR(7,'7H')}${mkQR(14,'14H')}${mkQR(30,'30H')}
           <span class="dfq-sep">|</span>
@@ -912,7 +977,7 @@ function renderRiwayat() {
           <input type="date" class="dfq-input" id="riwayatTo" value="${riwayatFilter.to}"
             onchange="setRiwayatDateRange(document.getElementById('riwayatFrom').value,this.value)">
         </div>
-        <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Reset semua filter" style="margin-left:.25rem">↺ Reset</button>
+        <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Reset semua filter" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
         <div class="ms-wrap" id="msPencacahWrap">
           <button class="ms-trigger" onclick="toggleMsPencacah(event)">
             <span id="msRiwayatLabel">${getMsLabel()}</span>
@@ -931,14 +996,13 @@ function renderRiwayat() {
           </div>
         </div>
       </div>
-      <div class="chart-scroll" style="margin-top:.75rem">
-        <div class="chart-inner" id="riwayatChartInner" style="width:100%;height:380px">
-          <canvas id="chartRiwayat"></canvas>
+        <div class="chart-scroll" style="margin-top:.75rem">
+          <div class="chart-inner" id="riwayatChartInner" style="width:100%;height:380px">
+            <canvas id="chartRiwayat"></canvas>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="tbl-card" style="margin-bottom:1.25rem">
-      <div class="tbl-header"><h2>Detail Pencacah</h2></div>
+      <div class="tbl-header"><h2>Detail Pencacah</h2><button class="btn-export-sm" onclick="exportRiwayat()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button></div>
       <div class="tbl-scroll" style="max-height:260px">
         <table>
           <thead>
@@ -1070,6 +1134,12 @@ function attachMsOutsideListener() {
   document.addEventListener('click', e => {
     const wrap = document.getElementById('msPencacahWrap');
     if (wrap && !wrap.contains(e.target)) closeMsPencacah();
+    const alertWrap = document.getElementById('alertWrap');
+    if (alertWrap && !alertWrap.contains(e.target) && alertPanelOpen) {
+      alertPanelOpen = false;
+      const dd = document.getElementById('alertDropdown');
+      if (dd) dd.style.display = 'none';
+    }
   });
 }
 
@@ -1206,6 +1276,147 @@ function refreshRiwayatViz() {
   _syncRiwayatTblHeaders();
 }
 
+// ── Export ────────────────────────────────────────────────────────────────────
+function _exportFilename(prefix) {
+  const now = new Date();
+  const pad = v => String(v).padStart(2, '0');
+  return `${prefix}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
+function _downloadCSV(rows2d, filename) {
+  const csv = rows2d.map(row =>
+    row.map(v => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')
+  ).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename + '.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function _downloadXLSX(rows2d, sheetName, filename) {
+  if (typeof XLSX === 'undefined') { _downloadCSV(rows2d, filename); return; }
+  const ws = XLSX.utils.aoa_to_sheet(rows2d);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, filename + '.xlsx');
+}
+
+function exportDetail() {
+  const header = ['No','Nama','Open Pasca','Submit Pasca','Reject Pasca','Open Praba','Submit Praba','Reject Praba','ULP'];
+  const rows   = filtered.map((d, i) => [
+    i + 1,
+    toProper(d.nama_pasca || d.nama_praba || ''),
+    n(d.open_pasca), n(d.submit_pasca), n(d.reject_pasca),
+    n(d.open_praba),  n(d.submit_praba),  n(d.reject_praba),
+    d.ulp || '',
+  ]);
+  _downloadXLSX([header, ...rows], 'Detail', _exportFilename('detail_rekap'));
+}
+
+function exportRingkasan() {
+  const src    = applyDateFilter(_getRingkasanSource(), ringkasanFilter);
+  const header = ['Tanggal','Open Pasca','Submit Pasca','Reject Pasca','Open Praba','Submit Praba','Reject Praba'];
+  const rows   = src.map(d => [d.tanggal, n(d.open_pasca), n(d.submit_pasca), n(d.reject_pasca), n(d.open_praba), n(d.submit_praba), n(d.reject_praba)]);
+  _downloadXLSX([header, ...rows], 'Ringkasan', _exportFilename('ringkasan'));
+}
+
+function exportRiwayat() {
+  const fd     = applyDateFilter(_ulpRiwayat(), riwayatFilter);
+  const isAll  = riwayatSelectedEmails.has('__all__') || riwayatSelectedEmails.size === 0;
+  const src    = isAll ? fd : fd.filter(d => riwayatSelectedEmails.has(d.email));
+  const header = ['Tanggal','Nama','Email','Open Pasca','Submit Pasca','Reject Pasca','Open Praba','Submit Praba','Reject Praba'];
+  const rows   = src.map(d => [d.tanggal, toProper(d.nama || d.email), d.email, n(d.open_pasca), n(d.submit_pasca), n(d.reject_pasca), n(d.open_praba), n(d.submit_praba), n(d.reject_praba)]);
+  _downloadXLSX([header, ...rows], 'Riwayat', _exportFilename('riwayat_pencacah'));
+}
+
+// ── Alert threshold ────────────────────────────────────────────────────────────
+function _getBelowThreshold() {
+  return allData.filter(d => {
+    const rp = parseFloat(pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)));
+    const rr = parseFloat(pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
+    return rp < alertThreshold || rr < alertThreshold;
+  }).map(d => ({
+    nama:      toProper(d.nama_pasca || d.nama_praba || ''),
+    ulp:       d.ulp || '',
+    pct_pasca: pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)),
+    pct_praba: pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)),
+  }));
+}
+
+function _refreshAlertBadge() {
+  if (!allData.length) return;
+  const below = _getBelowThreshold();
+  const wrap  = document.getElementById('alertWrap');
+  const badge = document.getElementById('alertBadge');
+  if (!wrap || !badge) return;
+  wrap.style.display   = '';
+  badge.textContent    = below.length;
+  badge.className      = 'alert-badge' + (below.length > 0 ? ' alert-badge-warn' : '');
+  const inp = document.getElementById('alertThresholdInput');
+  if (inp && inp !== document.activeElement) inp.value = alertThreshold;
+  if (alertPanelOpen) _buildAlertList(below);
+}
+
+function toggleAlertPanel() {
+  const dd = document.getElementById('alertDropdown');
+  if (!dd) return;
+  alertPanelOpen = !alertPanelOpen;
+  dd.style.display = alertPanelOpen ? 'block' : 'none';
+  if (alertPanelOpen) _buildAlertList(_getBelowThreshold());
+}
+
+function _buildAlertList(below) {
+  const list = document.getElementById('alertList');
+  if (!list) return;
+  if (!below.length) {
+    list.innerHTML = `<div class="alert-list-empty"><i class="bi bi-check-circle-fill"></i> Semua petugas memenuhi threshold ${alertThreshold}%</div>`;
+    return;
+  }
+  list.innerHTML = below.map(d => `
+    <div class="alert-item">
+      <div class="alert-item-nama">${d.nama}</div>
+      <div class="alert-item-ulp">${d.ulp || '—'}</div>
+      <div class="alert-item-rates">
+        <span class="alert-rate-badge ${parseFloat(d.pct_pasca) < alertThreshold ? 'warn' : 'ok'}">Pasca: ${d.pct_pasca}%</span>
+        <span class="alert-rate-badge ${parseFloat(d.pct_praba) < alertThreshold ? 'warn' : 'ok'}">Praba: ${d.pct_praba}%</span>
+      </div>
+    </div>`).join('');
+}
+
+function updateAlertThreshold(val) {
+  const v = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+  alertThreshold = v;
+  localStorage.setItem('cfg_alert_threshold', String(v));
+  _refreshAlertBadge();
+}
+
+// ── Drill-down ─────────────────────────────────────────────────────────────────
+function clearDrilldown() {
+  drilldownEmail = null;
+  document.querySelectorAll('.row-drilldown').forEach(tr => tr.classList.remove('row-drilldown'));
+  const banner = document.getElementById('drilldownBanner');
+  if (banner) banner.remove();
+  renderTable();
+  renderChart();
+}
+
+function _renderDrilldownBanner(displayName) {
+  const old = document.getElementById('drilldownBanner');
+  if (old) old.remove();
+  const tblCard = document.querySelector('#content .tbl-card');
+  if (!tblCard) return;
+  const banner = document.createElement('div');
+  banner.id        = 'drilldownBanner';
+  banner.className = 'drilldown-banner';
+  banner.innerHTML = `<span><i class="bi bi-funnel-fill"></i> Filter aktif: <strong>${displayName}</strong></span><button class="drilldown-clear" onclick="clearDrilldown()"><i class="bi bi-x"></i> Hapus Filter</button>`;
+  tblCard.insertAdjacentElement('beforebegin', banner);
+}
+
 // ── Interactions ──────────────────────────────────────────────────────────────
 function doSearch() { renderTable(); }
 
@@ -1225,7 +1436,7 @@ function _isDark() {
 
 function _applyThemeIcon() {
   const icon = document.getElementById('themeIcon');
-  if (icon) icon.textContent = _isDark() ? '☀️' : '🌙';
+  if (icon) icon.innerHTML = _isDark() ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
 }
 
 function _applyChartDefaults() {
@@ -1299,10 +1510,10 @@ function saveSheetConfig() {
   const url = document.getElementById('cfgUrlSheet').value.trim();
   const msg = document.getElementById('cfgMsg');
   const sid = _parseSheetId(url);
-  if (!sid) { msg.textContent = '⚠️ URL tidak valid — pastikan URL berasal dari Google Sheets.'; return; }
+  if (!sid) { msg.innerHTML = '<i class="bi bi-exclamation-triangle"></i> URL tidak valid — pastikan URL berasal dari Google Sheets.'; return; }
   localStorage.setItem('cfg_sheet_id', sid);
   SHEET_ID = sid;
-  msg.textContent = `✅ Disimpan — Sheet ID: ${sid}`;
+  msg.innerHTML = `<i class="bi bi-check-circle-fill"></i> Disimpan — Sheet ID: ${sid}`;
   loadData(); loadRingkasan(); loadRiwayat();
 }
 function resetSheetConfig() {
@@ -1310,7 +1521,7 @@ function resetSheetConfig() {
   ['cfg_gid_utama','cfg_gid_ringkasan','cfg_gid_riwayat'].forEach(k => localStorage.removeItem(k));
   document.getElementById('cfgUrlSheet').value = '';
   SHEET_ID = _DEFAULT_SHEET_ID;
-  document.getElementById('cfgMsg').textContent = '↺ Kembali ke sumber data default.';
+  document.getElementById('cfgMsg').innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> Kembali ke sumber data default.';
   loadData(); loadRingkasan(); loadRiwayat();
 }
 
@@ -1421,6 +1632,7 @@ window.addEventListener('scroll', () => {
 _loadSheetConfig();
 _populateSettingsInputs();   // pre-fill URL input meski panel settings belum dibuka
 loadAccentConfig();           // apply saved accent color
+alertThreshold = parseInt(localStorage.getItem('cfg_alert_threshold') || '80', 10);
 setInterval(loadData,    5 * 60 * 1000);
 setInterval(loadRingkasan,  5 * 60 * 1000);
 setInterval(loadRiwayat, 5 * 60 * 1000);
