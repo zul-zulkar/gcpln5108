@@ -8,7 +8,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="style.css" />
+
+  <!-- ── Stylesheets ─────────────────────────────────── -->
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/sidebar.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <link rel="stylesheet" href="css/tables.css" />
+  <link rel="stylesheet" href="css/charts.css" />
+  <link rel="stylesheet" href="css/filters.css" />
+  <link rel="stylesheet" href="css/panels.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/darkmode.css" />
 
   <script>
     /* ── Theme init — runs before render to avoid flash ── */
@@ -20,7 +31,168 @@
 </head>
 <body>
 
+<!-- ── Sidebar Overlay ──────────────────────────────────────────────────── -->
+<div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- ── Left Drawer Sidebar ──────────────────────────────────────────────── -->
+<aside id="appSidebar" role="navigation" aria-label="Menu utama">
+
+  <!-- Sidebar Header -->
+  <div class="sb-header">
+    <div class="sb-brand">
+      <div class="sb-brand-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+      <div class="sb-brand-text">
+        <div class="sb-brand-title">Dashboard GC PLN</div>
+        <div class="sb-brand-sub">BPS Kab. Buleleng · [55UTR]</div>
+      </div>
+    </div>
+    <button class="sb-close-btn" onclick="closeSidebar()" aria-label="Tutup menu">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <!-- Scrollable Body -->
+  <div class="sb-body">
+
+    <!-- Status -->
+    <div class="sb-status-row">
+      <span class="sb-status-text" id="lastUpdated">–</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="sb-section-label">Aksi</div>
+    <div class="sb-nav">
+
+      <!-- Refresh -->
+      <button class="sb-action-btn" id="btnRefresh"
+        onclick="loadData();loadRingkasan();loadRiwayat()">
+        <span id="refreshIcon"><i class="bi bi-arrow-clockwise"></i></span>
+        <span>Refresh Data</span>
+      </button>
+
+      <!-- Alert (expandable) -->
+      <button class="sb-action-btn sb-action-expandable" id="sbAlertBtn"
+        onclick="toggleSbAlert()">
+        <i class="bi bi-bell"></i>
+        <span>Peringatan</span>
+        <span class="sb-badge" id="alertBadge">0</span>
+        <i class="bi bi-chevron-down sb-chevron"></i>
+      </button>
+      <div class="sb-expand-body" id="sbAlertBody" style="display:none">
+        <div class="sb-alert-threshold">
+          <label>Pasca:
+            <input type="number" id="alertThresholdPasca" min="0" max="100" step="0.1"
+              oninput="updateAlertThresholdPasca(this.value)"> %
+          </label>
+          <label>Praba:
+            <input type="number" id="alertThresholdPraba" min="0" max="100" step="0.1"
+              oninput="updateAlertThresholdPraba(this.value)"> %
+          </label>
+        </div>
+        <div id="alertList"></div>
+      </div>
+
+      <!-- Settings (expandable) -->
+      <button class="sb-action-btn sb-action-expandable" id="sbSettingsBtn"
+        onclick="toggleSbSettings()">
+        <i class="bi bi-sliders"></i>
+        <span>Sumber Data</span>
+        <i class="bi bi-chevron-down sb-chevron"></i>
+      </button>
+      <div class="sb-expand-body" id="sbSettingsBody" style="display:none">
+        <label class="sb-input-label">URL Google Sheets
+          <span style="font-weight:400;opacity:.7;font-size:.67rem"> (tab mana saja)</span>
+        </label>
+        <input id="cfgUrlSheet" type="text" class="sb-input"
+          placeholder="https://docs.google.com/spreadsheets/d/…" />
+        <div class="sb-btn-row">
+          <button class="sb-sm-btn sb-sm-btn-primary" onclick="saveSheetConfig()">
+            <i class="bi bi-floppy"></i> Simpan &amp; Muat
+          </button>
+          <button class="sb-sm-btn" onclick="resetSheetConfig()">
+            <i class="bi bi-arrow-counterclockwise"></i> Default
+          </button>
+        </div>
+        <div class="sb-msg" id="cfgMsg"></div>
+      </div>
+
+      <!-- Appearance (expandable) -->
+      <button class="sb-action-btn sb-action-expandable" id="sbAppearanceBtn"
+        onclick="toggleSbAppearance()">
+        <i class="bi bi-palette"></i>
+        <span>Tampilan</span>
+        <i class="bi bi-chevron-down sb-chevron"></i>
+      </button>
+      <div class="sb-expand-body" id="sbAppearanceBody" style="display:none">
+        <!-- Theme toggle -->
+        <button class="sb-action-btn" onclick="toggleTheme()" style="border-radius:0">
+          <span id="themeIcon"><i class="bi bi-moon"></i></span>
+          <span id="sbThemeLabel">Mode Gelap</span>
+        </button>
+        <!-- Accent swatches -->
+        <div class="sb-accent-row">
+          <span class="sb-field-label">Warna Aksen</span>
+          <div class="sb-swatches">
+            <button class="accent-swatch" data-accent="blue"   onclick="selectAccent('blue')"   style="background:#1F4E79;" title="Biru (Default)"></button>
+            <button class="accent-swatch" data-accent="teal"   onclick="selectAccent('teal')"   style="background:#0D6E6E;" title="Teal"></button>
+            <button class="accent-swatch" data-accent="green"  onclick="selectAccent('green')"  style="background:#065F46;" title="Hijau"></button>
+            <button class="accent-swatch" data-accent="purple" onclick="selectAccent('purple')" style="background:#4C1D95;" title="Ungu"></button>
+            <button class="accent-swatch" data-accent="rose"   onclick="selectAccent('rose')"   style="background:#881337;" title="Merah"></button>
+            <button class="accent-swatch" data-accent="orange" onclick="selectAccent('orange')" style="background:#7c2d12;" title="Oranye"></button>
+            <button class="accent-swatch" data-accent="slate"  onclick="selectAccent('slate')"  style="background:#1e293b;" title="Abu"></button>
+            <input type="color" id="accentCustomColor" value="#1F4E79" title="Warna kustom" />
+          </div>
+          <button class="sb-sm-btn" style="margin-top:.45rem" onclick="resetAccent()">
+            <i class="bi bi-arrow-counterclockwise"></i> Reset
+          </button>
+        </div>
+      </div>
+    </div><!-- /.sb-nav actions -->
+
+    <div class="sb-divider"></div>
+
+    <!-- Navigation -->
+    <div class="sb-section-label">Navigasi</div>
+    <nav class="sb-nav" id="sbNavLinks">
+      <a class="sb-nav-item" data-target="sec-ringkasan"
+        onclick="navScrollTo('sec-ringkasan');closeSidebar()">
+        <i class="bi bi-bar-chart"></i> Ringkasan Statistik
+      </a>
+      <a class="sb-nav-item" data-target="sec-peringkat"
+        onclick="navScrollTo('sec-peringkat');closeSidebar()">
+        <i class="bi bi-trophy"></i> Peringkat Petugas
+      </a>
+      <a class="sb-nav-item" data-target="sec-chart"
+        onclick="navScrollTo('sec-chart');closeSidebar()">
+        <i class="bi bi-graph-up"></i> Visualisasi Data
+      </a>
+      <a class="sb-nav-item" data-target="sec-detail"
+        onclick="navScrollTo('sec-detail');closeSidebar()">
+        <i class="bi bi-table"></i> Data Detail
+      </a>
+      <a class="sb-nav-item" data-target="sec-tren"
+        onclick="navScrollTo('sec-tren');closeSidebar()">
+        <i class="bi bi-calendar3"></i> Tren Harian
+      </a>
+      <a class="sb-nav-item" data-target="sec-pencacah"
+        onclick="navScrollTo('sec-pencacah');closeSidebar()">
+        <i class="bi bi-people"></i> Progres Pencacah
+      </a>
+    </nav>
+
+  </div><!-- /.sb-body -->
+</aside><!-- /#appSidebar -->
+
+<!-- ── Header ────────────────────────────────────────────────────────────── -->
 <header>
+  <!-- Hamburger -->
+  <button id="sidebarToggle" onclick="openSidebar()"
+    aria-label="Buka menu" aria-expanded="false">
+    <span class="hbg-bar"></span>
+    <span class="hbg-bar"></span>
+    <span class="hbg-bar"></span>
+  </button>
+
   <div class="hdr-left">
     <div class="hdr-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
     <div class="hdr-title">
@@ -28,97 +200,20 @@
       <p>BPS Kabupaten Buleleng &nbsp;·&nbsp; [55UTR] &nbsp;·&nbsp; Pascabayar &amp; Prabayar</p>
     </div>
   </div>
-  <button id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="Buka menu" aria-expanded="false">
-    <span class="hbg-bar"></span>
-    <span class="hbg-bar"></span>
-    <span class="hbg-bar"></span>
-  </button>
+
   <div class="hdr-right">
-    <div class="hdr-group">
-      <span id="lastUpdated">–</span>
-      <button class="btn-refresh" id="btnRefresh" onclick="loadData();loadRingkasan();loadRiwayat()">
-        <span id="refreshIcon"><i class="bi bi-arrow-clockwise"></i></span><span class="btn-text"> Refresh</span>
-      </button>
-    </div>
-    <div class="hdr-sep"></div>
-    <div class="hdr-group">
-      <div class="alert-wrap" id="alertWrap" style="display:none">
-        <button class="btn-refresh" id="btnAlert" onclick="toggleAlertPanel()" title="Petugas di bawah threshold submit rate">
-          <i class="bi bi-bell"></i> <span class="alert-badge" id="alertBadge">0</span>
-        </button>
-        <div class="alert-dropdown" id="alertDropdown" style="display:none">
-          <div class="alert-dropdown-header">
-            <span><i class="bi bi-exclamation-triangle"></i> Di Bawah Threshold</span>
-            <button class="alert-dd-close" onclick="toggleAlertPanel()"><i class="bi bi-x"></i></button>
-          </div>
-          <div class="alert-threshold-row">
-            <label>Pasca: <input type="number" id="alertThresholdPasca" min="0" max="100" step="0.1"
-              oninput="updateAlertThresholdPasca(this.value)"> %</label>
-            <label>Praba: <input type="number" id="alertThresholdPraba" min="0" max="100" step="0.1"
-              oninput="updateAlertThresholdPraba(this.value)"> %</label>
-          </div>
-          <div class="alert-list" id="alertList"></div>
-        </div>
-      </div>
-      <button class="btn-refresh" id="btnSettings" onclick="toggleSettings()" title="Ganti sumber data">
-        <i class="bi bi-sliders"></i> <span class="btn-text">Sumber Data</span>
-      </button>
-      <button class="btn-theme" id="btnAccent" onclick="toggleAccentPanel()" title="Ubah warna aksen">
-        <i class="bi bi-palette"></i>
-      </button>
-      <button class="btn-theme" id="btnTheme" onclick="toggleTheme()" title="Toggle dark/light mode">
-        <span id="themeIcon"><i class="bi bi-moon"></i></span>
-      </button>
-    </div>
+    <button class="btn-refresh" onclick="toggleTheme()" title="Toggle dark/light mode"
+      style="padding:.3rem .55rem">
+      <span id="hdrThemeIcon"><i class="bi bi-moon"></i></span>
+    </button>
+    <button class="btn-refresh" id="hdrBtnRefresh"
+      onclick="loadData();loadRingkasan();loadRiwayat()">
+      <i class="bi bi-arrow-clockwise"></i><span class="btn-text"> Refresh</span>
+    </button>
   </div>
 </header>
 
-<div id="settingsPanel" style="background:var(--header-from);">
-  <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:.75rem; max-width:900px;">
-    <div style="flex:1; min-width:260px;">
-      <label style="color:rgba(255,255,255,.75); font-size:.72rem; font-weight:600; display:block; margin-bottom:.3rem;">
-        URL Google Sheets <span style="font-weight:400; opacity:.8;">(tempel URL spreadsheet — tab mana saja)</span>
-      </label>
-      <input id="cfgUrlSheet" type="text" placeholder="https://docs.google.com/spreadsheets/d/…/edit"
-        style="width:100%; padding:.38rem .6rem; border-radius:6px; border:1px solid rgba(255,255,255,.3);
-               background:rgba(255,255,255,.12); color:#fff; font-size:.8rem;" />
-    </div>
-    <div style="display:flex; gap:.5rem; align-items:center;">
-      <button class="btn-refresh" onclick="saveSheetConfig()" style="background:rgba(16,185,129,.8); border-color:rgba(16,185,129,.9);">
-        <i class="bi bi-floppy"></i> Simpan &amp; Muat
-      </button>
-      <button class="btn-refresh" onclick="resetSheetConfig()" style="background:rgba(255,255,255,.12);" title="Kembali ke sumber data default">
-        <i class="bi bi-arrow-counterclockwise"></i> Default
-      </button>
-    </div>
-    <div id="cfgMsg" style="font-size:.75rem; color:rgba(255,255,255,.7); width:100%;"></div>
-  </div>
-</div>
-
-<div id="accentPanel" style="background:var(--header-from);">
-  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; max-width:900px;">
-    <span style="color:rgba(255,255,255,.75); font-size:.78rem; font-weight:700; white-space:nowrap;"><i class="bi bi-palette"></i> Warna Aksen</span>
-    <div style="display:flex; flex-wrap:wrap; gap:.45rem; align-items:center;">
-      <button class="accent-swatch" data-accent="blue"   onclick="selectAccent('blue')"   style="background:#1F4E79;" title="Biru (Default)"></button>
-      <button class="accent-swatch" data-accent="teal"   onclick="selectAccent('teal')"   style="background:#0D6E6E;" title="Teal"></button>
-      <button class="accent-swatch" data-accent="green"  onclick="selectAccent('green')"  style="background:#065F46;" title="Hijau"></button>
-      <button class="accent-swatch" data-accent="purple" onclick="selectAccent('purple')" style="background:#4C1D95;" title="Ungu"></button>
-      <button class="accent-swatch" data-accent="rose"   onclick="selectAccent('rose')"   style="background:#881337;" title="Merah"></button>
-      <button class="accent-swatch" data-accent="orange" onclick="selectAccent('orange')" style="background:#7c2d12;" title="Oranye"></button>
-      <button class="accent-swatch" data-accent="slate"  onclick="selectAccent('slate')"  style="background:#1e293b;" title="Abu"></button>
-    </div>
-    <label style="display:flex; align-items:center; gap:.35rem; cursor:pointer;">
-      <input type="color" id="accentCustomColor" value="#1F4E79"
-        style="width:28px; height:28px; padding:1px; border:2px solid rgba(255,255,255,.35);
-               border-radius:6px; cursor:pointer; background:none;" title="Warna kustom" />
-      <span style="color:rgba(255,255,255,.7); font-size:.72rem;">Kustom</span>
-    </label>
-    <button class="btn-refresh" onclick="resetAccent()" style="background:rgba(255,255,255,.12); font-size:.72rem; padding:.22rem .6rem;" title="Kembali ke warna default">
-      <i class="bi bi-arrow-counterclockwise"></i> Reset
-    </button>
-  </div>
-</div>
-
+<!-- ── Main Content ──────────────────────────────────────────────────────── -->
 <main>
   <div id="errBox"></div>
   <div id="content">
@@ -131,6 +226,7 @@
   <div id="riwayatSection"></div>
 </main>
 
+<!-- ── Footer ────────────────────────────────────────────────────────────── -->
 <footer>
   <div class="footer-inner">
     <div class="footer-logo-row">
@@ -145,11 +241,19 @@
   </div>
 </footer>
 
-<button id="scrollTop" title="Ke atas" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="bi bi-chevron-up"></i></button>
+<!-- ── Scroll-to-top ─────────────────────────────────────────────────────── -->
+<button id="scrollTop" title="Ke atas"
+  onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <i class="bi bi-chevron-up"></i>
+</button>
 
+<!-- ── Scripts ───────────────────────────────────────────────────────────── -->
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="app.js"></script>
+<script src="js/sidebar.js"></script>
+
 </body>
 </html>

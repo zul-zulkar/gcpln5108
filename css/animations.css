@@ -1,0 +1,79 @@
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes countPop {
+  0%   { opacity: 0; transform: scale(.6) translateY(6px); }
+  70%  { transform: scale(1.08) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(46,117,182,.35); }
+  70%  { box-shadow: 0 0 0 8px rgba(46,117,182,0); }
+  100% { box-shadow: 0 0 0 0 rgba(46,117,182,0); }
+}
+@keyframes bannerIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes rowPulse {
+  0%   { background: rgba(252,211,77,.5) !important; }
+  60%  { background: rgba(252,211,77,.18) !important; }
+  100% { background: #FFFBEB !important; }
+}
+
+/* ── Card entrance ───────────────────────────────────────────────────────── */
+.ulp-overview { animation: fadeSlideUp .38s ease both; }
+.summary-grid .s-card { animation: fadeSlideUp .4s ease both; }
+.summary-grid .s-card:nth-child(2) { animation-delay: .08s; }
+.top-grid .top-card { animation: fadeSlideUp .4s ease .12s both; }
+.top-grid .top-card:nth-child(2) { animation-delay: .2s; }
+.chart-grid { animation: fadeSlideUp .4s ease .18s both; }
+.tbl-card   { animation: fadeSlideUp .4s ease .28s both; }
+
+/* ── Stat number count-up ────────────────────────────────────────────────── */
+.s-stat-num { animation: countPop .45s cubic-bezier(.34,1.56,.64,1) both; }
+.s-stat.open   .s-stat-num { animation-delay: .1s; }
+.s-stat.submit .s-stat-num { animation-delay: .18s; }
+.s-stat.reject .s-stat-num { animation-delay: .26s; }
+
+/* ── Button press feedback ───────────────────────────────────────────────── */
+.btn-refresh { transition: background .15s, transform .12s, box-shadow .15s; }
+.btn-refresh:active { transform: scale(.93); }
+.ulp-btn { transition: all .18s cubic-bezier(.4,0,.2,1); }
+.ulp-btn:active { transform: scale(.93); }
+.ulp-btn.active { animation: pulseRing .5s ease; }
+.dfq-btn  { transition: all .15s ease; }
+.dfq-btn:active { transform: scale(.92); }
+.btn-export-sm:active { transform: scale(.92); }
+
+/* ── ULP row entrance (JS sets --i) ─────────────────────────────────────── */
+.ulp-row {
+  animation: fadeSlideUp .35s ease both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.ulp-row:hover { transform: translateY(-1px); }
+
+/* ── Progress bar smooth fill ────────────────────────────────────────────── */
+.ulp-prog-fill-p, .ulp-prog-fill-r { transition: width .55s cubic-bezier(.4,0,.2,1); }
+.prog-fill { transition: width .6s ease; }
+
+/* ── Table row highlight ─────────────────────────────────────────────────── */
+td { transition: background .15s ease; }
+
+/* ── Loader conic spin ───────────────────────────────────────────────────── */
+.loader {
+  background: conic-gradient(var(--primary-light) 0deg, transparent 90deg);
+  border: none; animation: spin .75s linear infinite;
+}
+
+/* ── Scroll-to-top bounce ────────────────────────────────────────────────── */
+#scrollTop { transition: opacity .28s ease, transform .25s cubic-bezier(.34,1.56,.64,1); }
+#scrollTop.visible { transform: translateY(0) scale(1); }
+#scrollTop:not(.visible) { transform: translateY(14px) scale(.8); }

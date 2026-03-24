@@ -56,9 +56,10 @@ let alertPanelOpen = false;
 function loadData() {
   const btn  = document.getElementById('btnRefresh');
   const icon = document.getElementById('refreshIcon');
-  btn.classList.add('loading');
-  icon.innerHTML = '<i class="bi bi-arrow-clockwise spin-icon"></i>';
-  document.getElementById('lastUpdated').textContent = 'Memuat…';
+  if (btn)  btn.classList.add('loading');
+  if (icon) icon.innerHTML = '<i class="bi bi-arrow-clockwise spin-icon"></i>';
+  const lastEl = document.getElementById('lastUpdated');
+  if (lastEl) lastEl.textContent = 'Memuat…';
   document.getElementById('errBox').innerHTML = '';
 
   // Step 1: selalu load Utama (by GID jika dikonfigurasi, by sheet name jika belum)
@@ -81,9 +82,10 @@ function _loadMainStats() {
     document.getElementById('errBox').innerHTML =
       `<div class="err-box"><i class="bi bi-x-circle-fill"></i> Gagal memuat data. Periksa koneksi internet dan pastikan spreadsheet diset <em>Anyone with the link can view</em>.</div>`;
     document.getElementById('lastUpdated').textContent = 'Gagal';
-    const btn = document.getElementById('btnRefresh');
-    btn.classList.remove('loading');
-    document.getElementById('refreshIcon').innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    const btn  = document.getElementById('btnRefresh');
+    const icon = document.getElementById('refreshIcon');
+    if (btn)  btn.classList.remove('loading');
+    if (icon) icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
   };
   document.head.appendChild(script);
 }
@@ -197,8 +199,8 @@ function _gsheetCB(data) {
       `<div class="err-box"><i class="bi bi-x-circle-fill"></i> Gagal memproses data: <strong>${e.message}</strong></div>`;
     document.getElementById('lastUpdated').textContent = 'Error';
   } finally {
-    btn.classList.remove('loading');
-    icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    if (btn)  btn.classList.remove('loading');
+    if (icon) icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
   }
 }
 
@@ -353,21 +355,21 @@ function render() {
     ${ulpOverviewSection()}
 
     <!-- Summary Cards -->
-    <div class="section-title">Ringkasan Statistik</div>
+    <div class="section-title" id="sec-ringkasan">Ringkasan Statistik</div>
     <div class="summary-grid">
       ${summaryCard('pasca', 'PASCABAYAR', tPasca, display.length)}
       ${summaryCard('praba', 'PRABAYAR',   tPraba, display.length)}
     </div>
 
     <!-- Top Submitters -->
-    <div class="section-title">Peringkat Petugas</div>
+    <div class="section-title" id="sec-peringkat">Peringkat Petugas</div>
     <div class="top-grid">
       ${topCard('pasca', '<i class="bi bi-trophy"></i> Top Submit – Pascabayar')}
       ${topCard('praba', '<i class="bi bi-trophy"></i> Top Submit – Prabayar')}
     </div>
 
     <!-- Charts (side by side) -->
-    <div class="section-title">Visualisasi Data</div>
+    <div class="section-title" id="sec-chart">Visualisasi Data</div>
     <div class="chart-grid">
       <div class="chart-wrap">
         <h3>Submit vs Open – Pascabayar</h3>
@@ -384,7 +386,7 @@ function render() {
     </div>
 
     <!-- Table -->
-    <div class="section-title">Data Detail</div>
+    <div class="section-title" id="sec-detail">Data Detail</div>
     <div class="tbl-card">
       <div class="tbl-header">
         <h2>Detail Rekap &nbsp;<span id="tblCount"></span></h2>
@@ -402,16 +404,18 @@ function render() {
             <tr>
               <th rowspan="2" class="col-freeze-no" style="vertical-align:middle;text-align:center;cursor:default">No</th>
               <th rowspan="2" onclick="sortBy('nama_pasca')" class="col-nama" style="vertical-align:middle">Nama</th>
-              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
-              <th colspan="3" class="th-praba th-span">Prabayar</th>
+              <th colspan="4" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="4" class="th-praba th-span">Prabayar</th>
             </tr>
             <tr>
               <th class="th-pasca" onclick="sortBy('open_pasca')">Open</th>
               <th class="th-pasca" onclick="sortBy('submit_pasca')">Submit</th>
+              <th class="th-pasca" style="cursor:default">%</th>
               <th class="th-pasca hide-sm" onclick="sortBy('reject_pasca')">Reject</th>
               <th class="th-praba" onclick="sortBy('open_praba')">Open</th>
               <th class="th-praba" onclick="sortBy('submit_praba')">Submit</th>
-              <th class="th-praba hide-sm" onclick="sortBy('reject_proba')">Reject</th>
+              <th class="th-praba" style="cursor:default">%</th>
+              <th class="th-praba hide-sm" onclick="sortBy('reject_praba')">Reject</th>
             </tr>
           </thead>
           <tbody id="tblBody"></tbody>
@@ -424,6 +428,7 @@ function render() {
   renderChart();
   _animateStatNumbers();
   _refreshAlertBadge();
+  _setupNavObserver();
 }
 
 function ulpOverviewSection() {
@@ -551,7 +556,7 @@ function renderTable() {
   if (!body) return;
 
   if (!filtered.length) {
-    body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted)">Tidak ditemukan</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2.5rem;color:var(--muted)">Tidak ditemukan</td></tr>`;
     return;
   }
 
@@ -560,14 +565,18 @@ function renderTable() {
     const nama    = toProper(namaRaw);
     const email   = (d.email_pasca || d.email_praba || '').toLowerCase();
     const isDrill = drilldownEmail && email === drilldownEmail;
+    const ppasca  = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+    const ppraba  = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
     return `<tr${isDrill ? ' class="row-drilldown"' : ''}>
       <td class="td-no col-freeze-no">${i + 1}</td>
       <td class="td-nama col-nama" title="${nama}">${nama}</td>
       <td class="td-pasca">${fmtColored(d.open_pasca,   'n-open')}</td>
       <td class="td-pasca">${fmtColored(d.submit_pasca, 'n-submit')}</td>
+      <td class="td-pasca td-pct">${ppasca}%</td>
       <td class="td-pasca hide-sm">${fmtColored(d.reject_pasca, 'n-reject')}</td>
       <td class="td-praba">${fmtColored(d.open_praba,   'n-open')}</td>
       <td class="td-praba">${fmtColored(d.submit_praba, 'n-submit')}</td>
+      <td class="td-praba td-pct">${ppraba}%</td>
       <td class="td-praba hide-sm">${fmtColored(d.reject_praba, 'n-reject')}</td>
     </tr>`;
   }).join('');
@@ -656,7 +665,8 @@ function renderOneChart(sfx) {
             title: items => fullNames[items[0].dataIndex],
             label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}`
           }
-        }
+        },
+        datalabels: { display: false },
       },
       onHover: (_evt, elements, chart) => {
         chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
@@ -830,26 +840,34 @@ function renderRingkasan() {
   const submitPraba = display.map(d => n(d.submit_praba));
   const openPasca   = display.map(d => n(d.open_pasca));
   const openPraba   = display.map(d => n(d.open_praba));
+  const pctPascaArr = display.map(d => pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)));
+  const pctPrabaArr = display.map(d => pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
 
   // Table: sortable
   const arrH    = col => ringkasanTblSortCol === col ? (ringkasanTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
-  const tblRows = _sortArr(filt, ringkasanTblSortCol, ringkasanTblSortDir).map(d => `
+  const tblRows = _sortArr(filt, ringkasanTblSortCol, ringkasanTblSortDir).map(d => {
+    const pp = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+    const pr = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+    return `
     <tr>
       <td>${d.tanggal}</td>
       <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
       <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
+      <td class="td-pasca td-pct">${pp}%</td>
       <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
       <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
       <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
+      <td class="td-praba td-pct">${pr}%</td>
       <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const minWH = Math.max(480, display.length * 90);
   const mkQ   = (d, lbl) =>
     `<button class="dfq-btn${ringkasanActiveQuick === d ? ' active' : ''}" onclick="setRingkasanQuickFilter(${d})">${lbl}</button>`;
 
   sec.innerHTML = `
-    <div class="section-title" style="margin-top:1.75rem">Tren Harian</div>
+    <div class="section-title" id="sec-tren" style="margin-top:1.75rem">Tren Harian</div>
     <div class="combo-panel">
       <div class="combo-chart">
         <h3>Tren Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.72rem;font-weight:500;text-transform:none;letter-spacing:0">· ${activeUlp}</span>` : ''}</h3>
@@ -877,41 +895,48 @@ function renderRingkasan() {
           <thead>
             <tr>
               <th rowspan="2" onclick="sortRingkasanTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal${arrH('tanggal')}</th>
-              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
-              <th colspan="3" class="th-praba th-span">Prabayar</th>
+              <th colspan="4" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="4" class="th-praba th-span">Prabayar</th>
             </tr>
             <tr>
               <th class="th-pasca" onclick="sortRingkasanTbl('open_pasca')" style="cursor:pointer">Open${arrH('open_pasca')}</th>
               <th class="th-pasca" onclick="sortRingkasanTbl('submit_pasca')" style="cursor:pointer">Submit${arrH('submit_pasca')}</th>
+              <th class="th-pasca" style="cursor:default">%</th>
               <th class="th-pasca" onclick="sortRingkasanTbl('reject_pasca')" style="cursor:pointer">Reject${arrH('reject_pasca')}</th>
               <th class="th-praba" onclick="sortRingkasanTbl('open_praba')" style="cursor:pointer">Open${arrH('open_praba')}</th>
               <th class="th-praba" onclick="sortRingkasanTbl('submit_praba')" style="cursor:pointer">Submit${arrH('submit_praba')}</th>
+              <th class="th-praba" style="cursor:default">%</th>
               <th class="th-praba" onclick="sortRingkasanTbl('reject_praba')" style="cursor:pointer">Reject${arrH('reject_praba')}</th>
             </tr>
           </thead>
-          <tbody>${tblRows || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>'}</tbody>
+          <tbody>${tblRows || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
 
+  _setupNavObserver();
   if (chartRingkasan) { chartRingkasan.destroy(); chartRingkasan = null; }
   chartRingkasan = new Chart(document.getElementById('chartRingkasan'), {
     type: 'line',
     data: {
       labels,
       datasets: [
-        { label: 'Submit Pascabayar', data: submitPasca, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.1)',  tension: .3, pointRadius: 4, fill: true },
-        { label: 'Submit Prabayar',   data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true },
-        { label: 'Open Pascabayar',   data: openPasca,   borderColor: '#93C5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false },
-        { label: 'Open Prabayar',     data: openPraba,   borderColor: '#C4B5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false },
+        { label: 'Submit Pascabayar', data: submitPasca, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.1)',  tension: .3, pointRadius: 4, fill: true,
+          datalabels: { display: true, clip: false, formatter: (_v, ctx) => pctPascaArr[ctx.dataIndex] + '%', color: '#2563EB', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
+        { label: 'Submit Prabayar',   data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true,
+          datalabels: { display: true, clip: false, formatter: (_v, ctx) => pctPrabaArr[ctx.dataIndex] + '%', color: '#7C3AED', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
+        { label: 'Open Pascabayar',   data: openPasca,   borderColor: '#93C5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
+        { label: 'Open Prabayar',     data: openPraba,   borderColor: '#C4B5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { top: 22 } },
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
         tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}` } },
+        datalabels: { clip: false },
       },
       scales: {
         x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
@@ -980,7 +1005,7 @@ function renderRiwayat() {
     `<button class="dfq-btn${riwayatActiveQuick === d ? ' active' : ''}" onclick="setRiwayatQuickFilter(${d})">${lbl}</button>`;
 
   sec.innerHTML = `
-    <div class="section-title" style="margin-top:1.75rem">Progres Per Pencacah</div>
+    <div class="section-title" id="sec-pencacah" style="margin-top:1.75rem">Progres Per Pencacah</div>
     <div class="combo-panel">
       <div class="combo-chart">
         <h3 style="text-transform:none;letter-spacing:0;font-size:.82rem">
@@ -1032,15 +1057,17 @@ function renderRiwayat() {
             <tr>
               <th rowspan="2" onclick="sortRiwayatTbl('tanggal')" style="vertical-align:middle;cursor:pointer">Tanggal<span data-rv-sort="tanggal"></span></th>
               <th rowspan="2" onclick="sortRiwayatTbl('nama')" style="vertical-align:middle;cursor:pointer">Pencacah<span data-rv-sort="nama"></span></th>
-              <th colspan="3" class="th-pasca th-span">Pascabayar</th>
-              <th colspan="3" class="th-praba th-span">Prabayar</th>
+              <th colspan="4" class="th-pasca th-span">Pascabayar</th>
+              <th colspan="4" class="th-praba th-span">Prabayar</th>
             </tr>
             <tr>
               <th class="th-pasca" onclick="sortRiwayatTbl('open_pasca')" style="cursor:pointer">Open<span data-rv-sort="open_pasca"></span></th>
               <th class="th-pasca" onclick="sortRiwayatTbl('submit_pasca')" style="cursor:pointer">Submit<span data-rv-sort="submit_pasca"></span></th>
+              <th class="th-pasca" style="cursor:default">%</th>
               <th class="th-pasca" onclick="sortRiwayatTbl('reject_pasca')" style="cursor:pointer">Reject<span data-rv-sort="reject_pasca"></span></th>
               <th class="th-praba" onclick="sortRiwayatTbl('open_praba')" style="cursor:pointer">Open<span data-rv-sort="open_praba"></span></th>
               <th class="th-praba" onclick="sortRiwayatTbl('submit_praba')" style="cursor:pointer">Submit<span data-rv-sort="submit_praba"></span></th>
+              <th class="th-praba" style="cursor:default">%</th>
               <th class="th-praba" onclick="sortRiwayatTbl('reject_praba')" style="cursor:pointer">Reject<span data-rv-sort="reject_praba"></span></th>
             </tr>
           </thead>
@@ -1052,6 +1079,7 @@ function renderRiwayat() {
   attachMsOutsideListener();
   buildMsOptions();
   refreshRiwayatViz();
+  _setupNavObserver();
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
@@ -1157,12 +1185,7 @@ function attachMsOutsideListener() {
   document.addEventListener('click', e => {
     const wrap = document.getElementById('msPencacahWrap');
     if (wrap && !wrap.contains(e.target)) closeMsPencacah();
-    const alertWrap = document.getElementById('alertWrap');
-    if (alertWrap && !alertWrap.contains(e.target) && alertPanelOpen) {
-      alertPanelOpen = false;
-      const dd = document.getElementById('alertDropdown');
-      if (dd) dd.style.display = 'none';
-    }
+    // Alert panel is now inside the sidebar — no outside-click handling needed here
   });
 }
 
@@ -1265,6 +1288,7 @@ function refreshRiwayatViz() {
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}` } },
+          datalabels: { display: false },
         },
         scales: {
           x: { ticks: { font: { size: 10 }, maxRotation: 30 } },
@@ -1282,18 +1306,23 @@ function refreshRiwayatViz() {
   const tbody = document.getElementById('riwayatTblBody');
   if (tbody) {
     tbody.innerHTML = tblSrc.length
-      ? tblSrc.map(d => `
+      ? tblSrc.map(d => {
+        const pp = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+        const pr = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+        return `
       <tr>
         <td>${d.tanggal}</td>
         <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis">${toProper(d.nama || d.email)}</td>
         <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
         <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
+        <td class="td-pasca td-pct">${pp}%</td>
         <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
         <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
         <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
+        <td class="td-praba td-pct">${pr}%</td>
         <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
-      </tr>`).join('')
-      : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>';
+      </tr>`;}).join('')
+      : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>';
   }
   updateMsLabel();
   _syncRiwayatTblHeaders();
@@ -1400,21 +1429,12 @@ function _refreshAlertBadge() {
   }
 
   const below = _getBelowThreshold();
-  const wrap  = document.getElementById('alertWrap');
   const badge = document.getElementById('alertBadge');
-  if (!wrap || !badge) return;
-  wrap.style.display = '';
-  badge.textContent  = below.length;
-  badge.className    = 'alert-badge' + (below.length > 0 ? ' alert-badge-warn' : '');
+  if (badge) {
+    badge.textContent = below.length;
+    badge.className   = 'sb-badge' + (below.length > 0 ? ' warn' : '');
+  }
   if (alertPanelOpen) _buildAlertList(below);
-}
-
-function toggleAlertPanel() {
-  const dd = document.getElementById('alertDropdown');
-  if (!dd) return;
-  alertPanelOpen = !alertPanelOpen;
-  dd.style.display = alertPanelOpen ? 'block' : 'none';
-  if (alertPanelOpen) _buildAlertList(_getBelowThreshold());
 }
 
 function _buildAlertList(below) {
@@ -1485,8 +1505,13 @@ function _isDark() {
 }
 
 function _applyThemeIcon() {
-  const icon = document.getElementById('themeIcon');
-  if (icon) icon.innerHTML = _isDark() ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+  const dark = _isDark();
+  const html = dark ? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon"></i>';
+  const icon    = document.getElementById('themeIcon');
+  const hdrIcon = document.getElementById('hdrThemeIcon');
+  if (icon)    icon.innerHTML    = html;
+  if (hdrIcon) hdrIcon.innerHTML = html;
+  if (typeof _updateSbThemeLabel === 'function') _updateSbThemeLabel();
 }
 
 function _applyChartDefaults() {
@@ -1523,33 +1548,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   }
 });
 
-// ── Sheet Config Panel ────────────────────────────────────────────────────────
-function toggleMobileMenu() {
-  const r = document.querySelector('.hdr-right');
-  const open = r.classList.toggle('open');
-  document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', open);
-}
-function _closeMobileMenu() {
-  const r = document.querySelector('.hdr-right');
-  if (r.classList.contains('open')) {
-    r.classList.remove('open');
-    document.getElementById('mobileMenuBtn').setAttribute('aria-expanded', 'false');
-  }
-}
-function toggleSettings() {
-  const p = document.getElementById('settingsPanel');
-  const open = !p.classList.contains('open');
-  document.getElementById('accentPanel').classList.remove('open');
-  p.classList.toggle('open', open);
-  if (open) { _populateSettingsInputs(); _closeMobileMenu(); }
-}
-function toggleAccentPanel() {
-  const p = document.getElementById('accentPanel');
-  const open = !p.classList.contains('open');
-  document.getElementById('settingsPanel').classList.remove('open');
-  p.classList.toggle('open', open);
-  if (open) _closeMobileMenu();
-}
+// ── Sheet Config Panel ─────────────────────────────────────────────────────────
 function _populateSettingsInputs() {
   const sid = localStorage.getItem('cfg_sheet_id') || SHEET_ID;
   if (sid)
@@ -1662,6 +1661,11 @@ function resetAccent() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Explicitly register datalabels plugin in case auto-registration didn't fire
+  if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
+    Chart.register(ChartDataLabels);
+  }
+
   const picker = document.getElementById('accentCustomColor');
   if (picker) {
     picker.addEventListener('input', function() {
@@ -1672,6 +1676,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// ── Navigation observer setup — called after each render ──────────────────────
 
 // ── Scroll-to-top ─────────────────────────────────────────────────────────────
 window.addEventListener('scroll', () => {

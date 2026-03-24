@@ -1,0 +1,59 @@
+/* ── Dark mode — explicit toggle ─────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --primary:       #2E75B6;
+  --primary-light: #60A5FA;
+  --bg:          #0F172A;
+  --card:        #1E293B;
+  --text:        #E2E8F0;
+  --muted:       #94A3B8;
+  --border:      #334155;
+  --surface:     #1E2D42;
+  --surface-hov: #253548;
+  --trk-bg:      #334155;
+}
+:root[data-theme="dark"] .s-stat.open   { background: rgba(245,158,11,.14); }
+:root[data-theme="dark"] .s-stat.submit { background: rgba(16,185,129,.13); }
+:root[data-theme="dark"] .s-stat.reject { background: rgba(239,68,68,.13); }
+:root[data-theme="dark"] .ulp-row.ulp-active { background: rgba(59,130,246,.12); }
+:root[data-theme="dark"] .err-box { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #FCA5A5; }
+:root[data-theme="dark"] .th-pasca { background: rgba(59,130,246,.12) !important; }
+:root[data-theme="dark"] .th-praba { background: rgba(139,92,246,.12)  !important; }
+:root[data-theme="dark"] .td-pasca { background: rgba(59,130,246,.06); }
+:root[data-theme="dark"] .td-praba { background: rgba(139,92,246,.06); }
+:root[data-theme="dark"] select { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; color-scheme: dark; }
+:root[data-theme="dark"] .ms-search-row input { background: var(--card); }
+:root[data-theme="dark"] .ms-panel { background: var(--card); }
+:root[data-theme="dark"] .alert-rate-badge.warn { background: rgba(239,68,68,.2); color: #FCA5A5; }
+:root[data-theme="dark"] .alert-rate-badge.ok   { background: rgba(16,185,129,.15); color: #6EE7B7; }
+:root[data-theme="dark"] .drilldown-banner { background: rgba(194,65,12,.14); border-color: rgba(253,186,116,.3); }
+:root[data-theme="dark"] .drilldown-banner strong { color: #FB923C; }
+:root[data-theme="dark"] .drilldown-clear { background: rgba(255,255,255,.07); border-color: rgba(253,186,116,.4); color: #FB923C; }
+:root[data-theme="dark"] .row-drilldown td { outline-color: #FCD34D; animation: none !important; background: rgba(251,191,36,.12) !important; }
+
+/* ── Dark mode — system preference ──────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary:       #2E75B6;
+    --primary-light: #60A5FA;
+    --bg:          #0F172A;
+    --card:        #1E293B;
+    --text:        #E2E8F0;
+    --muted:       #94A3B8;
+    --border:      #334155;
+    --surface:     #1E2D42;
+    --surface-hov: #253548;
+    --trk-bg:      #334155;
+  }
+  :root:not([data-theme="light"]) .s-stat.open   { background: rgba(245,158,11,.14); }
+  :root:not([data-theme="light"]) .s-stat.submit { background: rgba(16,185,129,.13); }
+  :root:not([data-theme="light"]) .s-stat.reject { background: rgba(239,68,68,.13); }
+  :root:not([data-theme="light"]) .ulp-row.ulp-active { background: rgba(59,130,246,.12); }
+  :root:not([data-theme="light"]) .err-box { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: #FCA5A5; }
+  :root:not([data-theme="light"]) .th-pasca { background: rgba(59,130,246,.12) !important; }
+  :root:not([data-theme="light"]) .th-praba { background: rgba(139,92,246,.12)  !important; }
+  :root:not([data-theme="light"]) .td-pasca { background: rgba(59,130,246,.06); }
+  :root:not([data-theme="light"]) .td-praba { background: rgba(139,92,246,.06); }
+  :root:not([data-theme="light"]) select { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; color-scheme: dark; }
+  :root:not([data-theme="light"]) .ms-search-row input { background: var(--card); }
+  :root:not([data-theme="light"]) .ms-panel { background: var(--card); }
+}
