@@ -336,16 +336,17 @@ Klik kanan `FASIH_Scraper.exe` → **Send to → Desktop (create shortcut)**
 
 **Lokal (offline):** Salin folder `gcpln5108\` ke PC → klik dua kali `index.html`.
 
-Pastikan semua file berada dalam satu folder:
+Pastikan semua file dan subfolder berada dalam satu folder:
 ```
 gcpln5108\
 ├── index.html   ← buka file ini
-├── style.css
 ├── app.js
-└── config.js
+├── config.js
+├── css\         ← stylesheet per komponen (jangan dihapus)
+└── js\          ← modul JavaScript (jangan dihapus)
 ```
 
-**Online (dihosting):** Upload keempat file di atas ke server web atau GitHub Pages.
+**Online (dihosting):** Upload seluruh folder di atas ke server web atau GitHub Pages.
 
 ---
 
@@ -372,9 +373,10 @@ Cukup salin URL dari address bar browser saat spreadsheet terbuka — tidak perl
 
 Tanpa mengedit file, pengguna bisa mengganti sumber data:
 
-1. Klik tombol **⚙️ Sumber Data** di pojok kanan atas dashboard
-2. Tempel URL spreadsheet Google Sheets
-3. Klik **💾 Simpan & Muat**
+1. Klik tombol **☰** di pojok kiri atas untuk membuka sidebar
+2. Buka bagian **⚙ Settings** di sidebar
+3. Tempel URL spreadsheet Google Sheets
+4. Klik **💾 Simpan & Muat**
 
 Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Default** untuk kembali ke sumber bawaan.
 
@@ -382,13 +384,14 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 
 ### Cara membaca dashboard
 
-- **Filter ULP** di bagian atas → klik untuk melihat per kantor cabang
+- **Tombol ☰** di pojok kiri atas → buka/tutup sidebar navigasi
+- **Sidebar** → berisi navigasi antar section, tombol refresh, alert threshold, settings, dan pengaturan tampilan
+- **Filter ULP** di bagian atas konten → klik untuk melihat per kantor cabang
 - **Kartu ringkasan** → total Open / Submitted / Rejected hari ini
 - **Tabel per pencacah** → hijau = sudah submit semua, merah = masih ada open
 - **Grafik tren harian** → progress dari awal periode survei
 - **Grafik per pencacah** → riwayat historis, bisa difilter per ULP dan per individu
 - **Tombol ↑** di pojok kanan bawah → kembali ke atas halaman
-- **🔄 Refresh** di header → muat ulang data sekarang (otomatis setiap 5 menit)
 
 ---
 
@@ -420,6 +423,40 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 
 **Auto-run tidak berjalan**
 → Pastikan aplikasi tetap terbuka dan centang sudah diaktifkan.
+
+---
+
+## Changelog
+
+### v1.2.0 — 25 Maret 2026
+
+**Scraper (GUI)**
+- Fitur **Auto Reconnect VPN** — VPN di-disconnect dan di-reconnect ulang secara otomatis sebelum scraping dimulai, mengatasi kondisi VPN tersambung tapi tidak berfungsi dengan baik
+- Proses reconnect berjalan penuh tanpa interaksi manual dengan tiga strategi fallback: `rasdial` → kill proses FortiClient + CLI connect → restart service FortiClient
+- Paket distribusi (`FASIH_Scraper/`) dibersihkan — folder Dashboard tidak lagi disertakan
+
+**Dashboard**
+- Sidebar kiri yang dapat disembunyikan/ditampilkan, responsif di semua ukuran layar termasuk mobile
+- Semua kontrol (refresh, alert, settings, tema, navigasi) dipindahkan dari header ke dalam sidebar
+- CSS dipisah menjadi 10 file terorganisir di folder `css/` (variables, layout, sidebar, cards, tables, charts, filters, panels, animations, darkmode)
+- Modul JS sidebar dipisahkan ke `js/sidebar.js`
+
+### v1.1.0
+
+**Scraper (GUI)**
+- Antarmuka desktop (`FASIH_Scraper.exe`) berbasis Tkinter
+- Auto VPN connect saat run pertama kali
+- Auto-run terjadwal dengan interval jam/menit
+- Simpan pengaturan otomatis ke `fasih_settings.json`
+- Tombol Stop untuk membatalkan scraping di tengah jalan
+
+### v1.0.0
+
+- Rilis awal scraper CLI berbasis Playwright
+- Login SSO BPS (Keycloak), filter ngx-select Angular
+- Ekspor rekap ke Excel (`.xlsx`)
+- Sinkronisasi ke Google Sheets via Apps Script webhook
+- Dashboard monitoring web (HTML/CSS/JS statis)
 
 ---
 
