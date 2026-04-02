@@ -33,8 +33,10 @@ let chartPasca = null;
 let chartPraba = null;
 let ringkasanData      = [];
 let chartRingkasan     = null;
+let chartRingkasanYAxis = null;
 let riwayatData     = [];   // semua baris dari tab Riwayat
 let chartRiwayat    = null;
+let chartRiwayatYAxis = null;
 let riwayatSelectedEmails = new Set(['__all__']); // multi-select state
 let riwayatMsQuery    = '';
 let riwayatMetric     = 'submit_pasca';
@@ -285,6 +287,7 @@ function pct(sub, open, rej) {
   const tot = sub + open + rej;
   return tot > 0 ? ((sub / tot) * 100).toFixed(1) : '0.0';
 }
+function fmtPct(v) { return String(v).replace('.', ','); }
 
 function fmt(v) {
   if (v === null || v === undefined) return '<span class="n-zero">–</span>';
@@ -364,8 +367,8 @@ function render() {
     <!-- Top Submitters -->
     <div class="section-title" id="sec-peringkat">Peringkat Petugas</div>
     <div class="top-grid">
-      ${topCard('pasca', '<i class="bi bi-trophy"></i> Top Submit – Pascabayar')}
-      ${topCard('praba', '<i class="bi bi-trophy"></i> Top Submit – Prabayar')}
+      ${topCard('pasca', '<i class="bi bi-trophy"></i> Teratas Submit – Pascabayar')}
+      ${topCard('praba', '<i class="bi bi-trophy"></i> Teratas Submit – Prabayar')}
     </div>
 
     <!-- Charts (side by side) -->
@@ -390,7 +393,7 @@ function render() {
     <div class="tbl-card">
       <div class="tbl-header">
         <h2>Detail Rekap &nbsp;<span id="tblCount"></span></h2>
-        <button class="btn-export-sm" onclick="exportDetail()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button>
+        <button class="btn-export-sm" onclick="exportDetail()" title="Ekspor ke Excel"><i class="bi bi-download"></i> Ekspor</button>
         <div class="search-box">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -853,11 +856,11 @@ function renderRingkasan() {
       <td>${d.tanggal}</td>
       <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
       <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
-      <td class="td-pasca td-pct">${pp}%</td>
+      <td class="td-pasca td-pct">${fmtPct(pp)}%</td>
       <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
       <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
       <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
-      <td class="td-praba td-pct">${pr}%</td>
+      <td class="td-praba td-pct">${fmtPct(pr)}%</td>
       <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
     </tr>`;
   }).join('');
@@ -881,15 +884,15 @@ function renderRingkasan() {
             <input type="date" class="dfq-input" id="ringkasanTo" value="${ringkasanFilter.to}"
               onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)">
           </div>
-          <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Reset filter tanggal" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+          <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Atur ulang filter tanggal" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Atur Ulang</button>
         </div>
         <div class="chart-scroll">
-          <div class="chart-inner" style="min-width:${minWH}px;width:100%;height:300px">
+          <div class="chart-inner" style="min-width:${minWH}px;height:300px">
             <canvas id="chartRingkasan"></canvas>
           </div>
         </div>
       </div>
-      <div class="tbl-header"><h2>Riwayat Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.78rem;font-weight:400;color:var(--muted)">· ${activeUlp}</span>` : ''}</h2><button class="btn-export-sm" onclick="exportRingkasan()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button></div>
+      <div class="tbl-header"><h2>Riwayat Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.78rem;font-weight:400;color:var(--muted)">· ${activeUlp}</span>` : ''}</h2><button class="btn-export-sm" onclick="exportRingkasan()" title="Ekspor ke Excel"><i class="bi bi-download"></i> Ekspor</button></div>
       <div class="tbl-scroll" style="max-height:280px">
         <table>
           <thead>
@@ -915,16 +918,18 @@ function renderRingkasan() {
     </div>`;
 
   _setupNavObserver();
+
   if (chartRingkasan) { chartRingkasan.destroy(); chartRingkasan = null; }
+
   chartRingkasan = new Chart(document.getElementById('chartRingkasan'), {
     type: 'line',
     data: {
       labels,
       datasets: [
         { label: 'Submit Pascabayar', data: submitPasca, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.1)',  tension: .3, pointRadius: 4, fill: true,
-          datalabels: { display: true, clip: false, formatter: (_v, ctx) => pctPascaArr[ctx.dataIndex] + '%', color: '#2563EB', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
+          datalabels: { display: true, clip: false, formatter: (_v, ctx) => fmtPct(pctPascaArr[ctx.dataIndex]) + '%', color: '#2563EB', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
         { label: 'Submit Prabayar',   data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true,
-          datalabels: { display: true, clip: false, formatter: (_v, ctx) => pctPrabaArr[ctx.dataIndex] + '%', color: '#7C3AED', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
+          datalabels: { display: true, clip: false, formatter: (_v, ctx) => fmtPct(pctPrabaArr[ctx.dataIndex]) + '%', color: '#7C3AED', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
         { label: 'Open Pascabayar',   data: openPasca,   borderColor: '#93C5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
         { label: 'Open Prabayar',     data: openPraba,   borderColor: '#C4B5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
       ],
@@ -934,7 +939,7 @@ function renderRingkasan() {
       maintainAspectRatio: false,
       layout: { padding: { top: 22 } },
       plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 14 } },
+        legend: { position: 'bottom', align: 'start', labels: { font: { size: 11 }, padding: 14 } },
         tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString('id-ID')}` } },
         datalabels: { clip: false },
       },
@@ -1025,7 +1030,7 @@ function renderRiwayat() {
           <input type="date" class="dfq-input" id="riwayatTo" value="${riwayatFilter.to}"
             onchange="setRiwayatDateRange(document.getElementById('riwayatFrom').value,this.value)">
         </div>
-        <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Reset semua filter" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Reset</button>
+        <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Atur ulang semua filter" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Atur Ulang</button>
         <div class="ms-wrap" id="msPencacahWrap">
           <button class="ms-trigger" onclick="toggleMsPencacah(event)">
             <span id="msRiwayatLabel">${getMsLabel()}</span>
@@ -1045,12 +1050,12 @@ function renderRiwayat() {
         </div>
       </div>
         <div class="chart-scroll" style="margin-top:.75rem">
-          <div class="chart-inner" id="riwayatChartInner" style="width:100%;height:380px">
+          <div class="chart-inner" id="riwayatChartInner" style="height:380px">
             <canvas id="chartRiwayat"></canvas>
           </div>
         </div>
       </div>
-      <div class="tbl-header"><h2>Detail Pencacah</h2><button class="btn-export-sm" onclick="exportRiwayat()" title="Export ke Excel"><i class="bi bi-download"></i> Export</button></div>
+      <div class="tbl-header"><h2>Detail Pencacah</h2><button class="btn-export-sm" onclick="exportRiwayat()" title="Ekspor ke Excel"><i class="bi bi-download"></i> Ekspor</button></div>
       <div class="tbl-scroll" style="max-height:260px">
         <table>
           <thead>
@@ -1278,6 +1283,7 @@ function refreshRiwayatViz() {
   if (inner) inner.style.minWidth = chartW + 'px';
 
   if (chartRiwayat) { chartRiwayat.destroy(); chartRiwayat = null; }
+
   const ctx = document.getElementById('chartRiwayat');
   if (ctx) {
     chartRiwayat = new Chart(ctx, {
@@ -1315,11 +1321,11 @@ function refreshRiwayatViz() {
         <td style="font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis">${toProper(d.nama || d.email)}</td>
         <td class="td-pasca"><span class="n-open">${n(d.open_pasca).toLocaleString('id-ID')}</span></td>
         <td class="td-pasca"><span class="n-submit">${n(d.submit_pasca).toLocaleString('id-ID')}</span></td>
-        <td class="td-pasca td-pct">${pp}%</td>
+        <td class="td-pasca td-pct">${fmtPct(pp)}%</td>
         <td class="td-pasca"><span class="n-reject">${n(d.reject_pasca).toLocaleString('id-ID')}</span></td>
         <td class="td-praba"><span class="n-open">${n(d.open_praba).toLocaleString('id-ID')}</span></td>
         <td class="td-praba"><span class="n-submit">${n(d.submit_praba).toLocaleString('id-ID')}</span></td>
-        <td class="td-praba td-pct">${pr}%</td>
+        <td class="td-praba td-pct">${fmtPct(pr)}%</td>
         <td class="td-praba"><span class="n-reject">${n(d.reject_praba).toLocaleString('id-ID')}</span></td>
       </tr>`;}).join('')
       : '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:1.5rem">Belum ada data</td></tr>';
@@ -1449,8 +1455,8 @@ function _buildAlertList(below) {
       <div class="alert-item-nama">${d.nama}</div>
       <div class="alert-item-ulp">${d.ulp || '—'}</div>
       <div class="alert-item-rates">
-        <span class="alert-rate-badge ${parseFloat(d.pct_pasca) < alertThresholdPasca ? 'warn' : 'ok'}">Pasca: ${d.pct_pasca}%</span>
-        <span class="alert-rate-badge ${parseFloat(d.pct_praba) < alertThresholdPraba ? 'warn' : 'ok'}">Praba: ${d.pct_praba}%</span>
+        <span class="alert-rate-badge ${parseFloat(d.pct_pasca) < alertThresholdPasca ? 'warn' : 'ok'}">Pasca: ${fmtPct(d.pct_pasca)}%</span>
+        <span class="alert-rate-badge ${parseFloat(d.pct_praba) < alertThresholdPraba ? 'warn' : 'ok'}">Praba: ${fmtPct(d.pct_praba)}%</span>
       </div>
     </div>`).join('');
 }
