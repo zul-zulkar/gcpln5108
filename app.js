@@ -53,6 +53,42 @@ let drilldownEmail = null;        // email of bar-chart-clicked enumerator, null
 let alertThresholdPasca = 0;      // dynamic default = overall pct pasca for current ULP
 let alertThresholdPraba = 0;      // dynamic default = overall pct praba for current ULP
 let alertPanelOpen = false;
+let selectedDate    = '';         // DD/MM/YYYY — default = hari ini, diset saat init
+
+// ── Date selection helpers ────────────────────────────────────────────────────
+function _todayDDMMYYYY() {
+  const t = new Date();
+  return `${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
+}
+function _todayISO() {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+function setSelectedDate(val) {
+  if (!val) { selectedDate = _todayDDMMYYYY(); }
+  else {
+    const [y, m, d] = val.split('-');
+    selectedDate = `${d}/${m}/${y}`;
+  }
+  _syncTodayBtn();
+  loadData();
+}
+
+function resetToToday() {
+  selectedDate = _todayDDMMYYYY();
+  const inp = document.getElementById('hdrDateInput');
+  if (inp) inp.value = _todayISO();
+  _syncTodayBtn();
+  loadData();
+}
+
+function _syncTodayBtn() {
+  const btn = document.getElementById('btnToday');
+  if (!btn) return;
+  const isToday = selectedDate === _todayDDMMYYYY();
+  btn.style.display = isToday ? 'none' : '';
+}
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
 function loadData() {
@@ -159,9 +195,8 @@ function _gsheetCB(data) {
     });
     const ci = name => colIdx[name.toLowerCase().replace(/_/g, ' ')] ?? -1;
 
-    // Today in DD/MM/YYYY (same format scraper stores)
-    const t = new Date();
-    const todayStr = `${String(t.getDate()).padStart(2,'0')}/${String(t.getMonth()+1).padStart(2,'0')}/${t.getFullYear()}`;
+    // Gunakan selectedDate (default = hari ini) sebagai filter tanggal
+    const filterDate = selectedDate || _todayDDMMYYYY();
 
     allData = [];
     let seq = 1;
@@ -169,9 +204,9 @@ function _gsheetCB(data) {
       const c  = row.c || [];
       const cv = idx => idx >= 0 && c[idx] && c[idx].v !== null && c[idx].v !== undefined ? c[idx].v : null;
 
-      // Filter: hanya baris hari ini
+      // Filter: hanya baris tanggal yang dipilih
       const tglStr = _parseGvizDate(c[ci('tanggal')]);
-      if (tglStr !== todayStr) return;
+      if (tglStr !== filterDate) return;
 
       const nama  = c[ci('nama')]  ? String(c[ci('nama')].v  || '').trim() : '';
       const email = c[ci('email')] ? String(c[ci('email')].v || '').trim() : '';
@@ -1671,6 +1706,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
     Chart.register(ChartDataLabels);
   }
+
+  // Init date picker ke hari ini
+  selectedDate = _todayDDMMYYYY();
+  const dateInp = document.getElementById('hdrDateInput');
+  if (dateInp) dateInp.value = _todayISO();
+  _syncTodayBtn();
 
   const picker = document.getElementById('accentCustomColor');
   if (picker) {

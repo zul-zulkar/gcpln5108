@@ -68,6 +68,32 @@ header {
 .btn-refresh.loading { opacity: .7; pointer-events: none; }
 .btn-refresh:active  { transform: scale(.93); }
 
+/* ── Header date picker ──────────────────────────────────────────────────── */
+input.hdr-date-input[type="date"] {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  border-radius: 7px;
+  padding: .35rem .6rem;
+  font-size: .75rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+input.hdr-date-input[type="date"]:hover,
+input.hdr-date-input[type="date"]:focus {
+  background: rgba(255,255,255,.28);
+  border-color: rgba(255,255,255,.65);
+}
+input.hdr-date-input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(.8);
+  cursor: pointer;
+}
+@media (max-width: 480px) {
+  input.hdr-date-input[type="date"] { font-size: .68rem; padding: .28rem .4rem; }
+}
+
 /* ── Main ───────────────────────────────────────────────────────────────── */
 main {
   max-width: 1280px;
