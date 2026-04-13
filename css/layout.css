@@ -69,29 +69,44 @@ header {
 .btn-refresh:active  { transform: scale(.93); }
 
 /* ── Header date picker ──────────────────────────────────────────────────── */
-input.hdr-date-input[type="date"] {
+.hdr-date-wrap { display: flex; align-items: center; gap: .25rem; }
+
+.hdr-date-btn {
+  display: flex; align-items: center; gap: .38rem;
   background: rgba(255,255,255,.18);
   border: 1px solid rgba(255,255,255,.35);
   color: #fff;
   border-radius: 7px;
-  padding: .35rem .6rem;
-  font-size: .75rem;
-  font-family: inherit;
-  outline: none;
+  padding: .35rem .7rem;
+  font-size: .78rem; font-weight: 600;
   cursor: pointer;
-  transition: background .15s, border-color .15s;
+  position: relative;
+  white-space: nowrap;
+  transition: background .15s;
+  user-select: none;
 }
-input.hdr-date-input[type="date"]:hover,
-input.hdr-date-input[type="date"]:focus {
-  background: rgba(255,255,255,.28);
-  border-color: rgba(255,255,255,.65);
+.hdr-date-btn:hover { background: rgba(255,255,255,.28); border-color: rgba(255,255,255,.6); }
+.hdr-date-btn i { font-size: .82rem; opacity: .9; }
+
+/* Input tersembunyi di balik label — klik label = buka calendar picker */
+.hdr-date-btn input[type="date"] {
+  position: absolute; inset: 0; opacity: 0;
+  width: 100%; height: 100%;
+  cursor: pointer; border: none; background: none;
 }
-input.hdr-date-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) opacity(.8);
-  cursor: pointer;
+.hdr-date-btn input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer;
 }
+
+/* Tombol reset (×) */
+.hdr-date-reset {
+  padding: .35rem .5rem !important;
+  font-size: .72rem !important;
+}
+
 @media (max-width: 480px) {
-  input.hdr-date-input[type="date"] { font-size: .68rem; padding: .28rem .4rem; }
+  .hdr-date-btn { font-size: .7rem; padding: .28rem .5rem; }
 }
 
 /* ── Main ───────────────────────────────────────────────────────────────── */

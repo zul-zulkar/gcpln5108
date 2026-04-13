@@ -202,12 +202,17 @@
   </div>
 
   <div class="hdr-right">
-    <input type="date" id="hdrDateInput" class="hdr-date-input"
-      onchange="setSelectedDate(this.value)" title="Pilih tanggal data" />
-    <button class="btn-refresh" id="btnToday" onclick="resetToToday()"
-      title="Kembali ke hari ini" style="display:none">
-      <i class="bi bi-calendar-check"></i><span class="btn-text"> Hari Ini</span>
-    </button>
+    <div class="hdr-date-wrap">
+      <label class="hdr-date-btn" for="hdrDateInput" title="Pilih tanggal data">
+        <i class="bi bi-calendar3"></i>
+        <span id="hdrDateLabel">Hari Ini</span>
+        <input type="date" id="hdrDateInput" onchange="setSelectedDate(this.value)" />
+      </label>
+      <button class="btn-refresh hdr-date-reset" id="btnToday" onclick="resetToToday()"
+        title="Reset ke hari ini" style="display:none">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
     <button class="btn-refresh" onclick="toggleTheme()" title="Toggle dark/light mode"
       style="padding:.3rem .55rem">
       <span id="hdrThemeIcon"><i class="bi bi-moon"></i></span>

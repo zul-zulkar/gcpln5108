@@ -85,17 +85,20 @@ function resetToToday() {
 
 function _syncTodayBtn() {
   const btn = document.getElementById('btnToday');
-  if (!btn) return;
+  const lbl = document.getElementById('hdrDateLabel');
   const isToday = selectedDate === _todayDDMMYYYY();
-  btn.style.display = isToday ? 'none' : '';
+  if (btn) btn.style.display = isToday ? 'none' : '';
+  if (lbl) lbl.textContent = isToday ? 'Hari Ini' : selectedDate;
 }
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
 function loadData() {
-  const btn  = document.getElementById('btnRefresh');
-  const icon = document.getElementById('refreshIcon');
-  if (btn)  btn.classList.add('loading');
-  if (icon) icon.innerHTML = '<i class="bi bi-arrow-clockwise spin-icon"></i>';
+  const btn     = document.getElementById('btnRefresh');
+  const icon    = document.getElementById('refreshIcon');
+  const hdrBtn  = document.getElementById('hdrBtnRefresh');
+  if (btn)    btn.classList.add('loading');
+  if (hdrBtn) hdrBtn.classList.add('loading');
+  if (icon)   icon.innerHTML = '<i class="bi bi-arrow-clockwise spin-icon"></i>';
   const lastEl = document.getElementById('lastUpdated');
   if (lastEl) lastEl.textContent = 'Memuat…';
   document.getElementById('errBox').innerHTML = '';
@@ -181,8 +184,9 @@ function _gsheetUtamaCB(data) {
 
 // ── JSONP Callback ────────────────────────────────────────────────────────────
 function _gsheetCB(data) {
-  const btn  = document.getElementById('btnRefresh');
-  const icon = document.getElementById('refreshIcon');
+  const btn    = document.getElementById('btnRefresh');
+  const icon   = document.getElementById('refreshIcon');
+  const hdrBtn = document.getElementById('hdrBtnRefresh');
 
   try {
     const cols = data.table.cols || [];
@@ -236,8 +240,9 @@ function _gsheetCB(data) {
       `<div class="err-box"><i class="bi bi-x-circle-fill"></i> Gagal memproses data: <strong>${e.message}</strong></div>`;
     document.getElementById('lastUpdated').textContent = 'Error';
   } finally {
-    if (btn)  btn.classList.remove('loading');
-    if (icon) icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    if (btn)    btn.classList.remove('loading');
+    if (hdrBtn) hdrBtn.classList.remove('loading');
+    if (icon)   icon.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
   }
 }
 
