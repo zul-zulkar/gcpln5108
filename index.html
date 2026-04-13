@@ -203,14 +203,16 @@
 
   <div class="hdr-right">
     <div class="hdr-date-wrap">
-      <label class="hdr-date-btn" for="hdrDateInput" title="Pilih tanggal data">
-        <i class="bi bi-calendar3"></i>
+      <label class="hdr-date-btn" id="hdrDateBtnEl" for="hdrDateInput" title="Klik untuk memilih tanggal data">
+        <i class="bi bi-calendar3" id="hdrDateIcon"></i>
+        <span class="hdr-date-pill-label" id="hdrDatePillLabel">Tanggal</span>
+        <span class="hdr-date-sep" id="hdrDateSep">:</span>
         <span id="hdrDateLabel">Hari Ini</span>
         <input type="date" id="hdrDateInput" onchange="setSelectedDate(this.value)" />
       </label>
       <button class="btn-refresh hdr-date-reset" id="btnToday" onclick="resetToToday()"
-        title="Reset ke hari ini" style="display:none">
-        <i class="bi bi-x-lg"></i>
+        title="Kembali ke data hari ini" style="display:none">
+        <i class="bi bi-x-lg"></i>&nbsp;Reset
       </button>
     </div>
     <button class="btn-refresh" onclick="toggleTheme()" title="Toggle dark/light mode"

@@ -69,24 +69,59 @@ header {
 .btn-refresh:active  { transform: scale(.93); }
 
 /* ── Header date picker ──────────────────────────────────────────────────── */
-.hdr-date-wrap { display: flex; align-items: center; gap: .25rem; }
+.hdr-date-wrap { display: flex; align-items: center; gap: .35rem; }
 
+/* ── State: default (hari ini) ── */
 .hdr-date-btn {
   display: flex; align-items: center; gap: .38rem;
   background: rgba(255,255,255,.18);
-  border: 1px solid rgba(255,255,255,.35);
+  border: 1.5px solid rgba(255,255,255,.35);
   color: #fff;
-  border-radius: 7px;
-  padding: .35rem .7rem;
+  border-radius: 8px;
+  padding: .38rem .8rem;
   font-size: .78rem; font-weight: 600;
   cursor: pointer;
   position: relative;
   white-space: nowrap;
-  transition: background .15s;
+  transition: background .15s, border-color .15s, box-shadow .15s;
   user-select: none;
 }
-.hdr-date-btn:hover { background: rgba(255,255,255,.28); border-color: rgba(255,255,255,.6); }
-.hdr-date-btn i { font-size: .82rem; opacity: .9; }
+.hdr-date-btn:hover {
+  background: rgba(255,255,255,.28);
+  border-color: rgba(255,255,255,.65);
+}
+.hdr-date-btn i { font-size: .85rem; }
+
+/* Sub-label kecil "Tanggal :" */
+.hdr-date-pill-label {
+  font-size: .65rem;
+  font-weight: 400;
+  opacity: .75;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.hdr-date-sep { opacity: .6; margin: 0 -.1rem; }
+
+/* ── State: filter aktif (bukan hari ini) ── */
+.hdr-date-btn.filter-active {
+  background: #f59e0b;               /* kuning-oranye mencolok */
+  border-color: #fbbf24;
+  color: #1a1a1a;                    /* teks gelap supaya terbaca */
+  box-shadow: 0 0 0 3px rgba(245,158,11,.45), 0 2px 8px rgba(0,0,0,.25);
+  animation: pulse-filter 2.2s ease-in-out infinite;
+}
+.hdr-date-btn.filter-active:hover {
+  background: #fbbf24;
+  border-color: #fde68a;
+}
+.hdr-date-btn.filter-active .hdr-date-pill-label,
+.hdr-date-btn.filter-active .hdr-date-sep { color: #78350f; opacity: .85; }
+.hdr-date-btn.filter-active i { color: #78350f; }
+
+@keyframes pulse-filter {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(245,158,11,.45), 0 2px 8px rgba(0,0,0,.25); }
+  50%       { box-shadow: 0 0 0 6px rgba(245,158,11,.18), 0 2px 8px rgba(0,0,0,.25); }
+}
 
 /* Input tersembunyi di balik label — klik label = buka calendar picker */
 .hdr-date-btn input[type="date"] {
@@ -99,14 +134,28 @@ header {
   opacity: 0; cursor: pointer;
 }
 
-/* Tombol reset (×) */
+/* Tombol reset */
 .hdr-date-reset {
-  padding: .35rem .5rem !important;
-  font-size: .72rem !important;
+  display: flex; align-items: center; gap: .25rem;
+  background: rgba(245,158,11,.22) !important;
+  border: 1.5px solid rgba(245,158,11,.6) !important;
+  color: #fde68a !important;
+  padding: .38rem .65rem !important;
+  font-size: .73rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  animation: none !important;
+}
+.hdr-date-reset:hover {
+  background: rgba(245,158,11,.38) !important;
+  color: #fff !important;
 }
 
 @media (max-width: 480px) {
-  .hdr-date-btn { font-size: .7rem; padding: .28rem .5rem; }
+  .hdr-date-btn { font-size: .7rem; padding: .3rem .55rem; }
+  .hdr-date-pill-label { display: none; }
+  .hdr-date-sep { display: none; }
+  .hdr-date-reset span { display: none; } /* hanya ikon × di mobile */
 }
 
 /* ── Main ───────────────────────────────────────────────────────────────── */

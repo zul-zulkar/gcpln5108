@@ -65,30 +65,89 @@ function _todayISO() {
   return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
 }
 
+// Helper: selectedDate (DD/MM/YYYY) → YYYY-MM-DD for date inputs
+function _selectedDateISO() {
+  const [d, m, y] = selectedDate.split('/');
+  return `${y}-${m}-${d}`;
+}
+
+// Sync tren line "to" date to header filter — called every time selectedDate changes
+function _syncTrenFilter() {
+  const isToday = selectedDate === _todayDDMMYYYY();
+  const toVal   = isToday ? '' : _selectedDateISO();
+
+  // Update filter objects — only "to" so user's custom "from" is preserved
+  ringkasanFilter = { ...ringkasanFilter, to: toVal };
+  riwayatFilter   = { ...riwayatFilter,   to: toVal };
+
+  // When header filter active, deactivate quick-filter highlight; when reset, restore
+  if (!isToday) {
+    ringkasanActiveQuick = -1;
+    riwayatActiveQuick   = -1;
+  } else if (ringkasanActiveQuick === -1) {
+    ringkasanActiveQuick = 0;
+    ringkasanFilter      = { from: '', to: '' };
+    riwayatActiveQuick   = 0;
+    riwayatFilter        = { from: '', to: '' };
+  }
+
+  // Update DOM inputs if tren panel is already rendered
+  const rkTo = document.getElementById('ringkasanTo');
+  const rvTo = document.getElementById('riwayatTo');
+  if (rkTo) rkTo.value = toVal;
+  if (rvTo) rvTo.value = toVal;
+}
+
 function setSelectedDate(val) {
   if (!val) { selectedDate = _todayDDMMYYYY(); }
   else {
     const [y, m, d] = val.split('-');
     selectedDate = `${d}/${m}/${y}`;
   }
+  _syncTrenFilter();
   _syncTodayBtn();
   loadData();
+  // Re-render tren immediately without waiting for network refetch
+  if (ringkasanData.length) renderRingkasan();
+  if (riwayatData.length) refreshRiwayatViz();
 }
 
 function resetToToday() {
   selectedDate = _todayDDMMYYYY();
   const inp = document.getElementById('hdrDateInput');
   if (inp) inp.value = _todayISO();
+  _syncTrenFilter();
   _syncTodayBtn();
   loadData();
+  if (ringkasanData.length) renderRingkasan();
+  if (riwayatData.length) refreshRiwayatViz();
 }
 
 function _syncTodayBtn() {
-  const btn = document.getElementById('btnToday');
-  const lbl = document.getElementById('hdrDateLabel');
-  const isToday = selectedDate === _todayDDMMYYYY();
-  if (btn) btn.style.display = isToday ? 'none' : '';
+  const resetBtn  = document.getElementById('btnToday');
+  const lbl       = document.getElementById('hdrDateLabel');
+  const dateBtnEl = document.getElementById('hdrDateBtnEl');
+  const pillLbl   = document.getElementById('hdrDatePillLabel');
+  const isToday   = selectedDate === _todayDDMMYYYY();
+
+  /* Reset button — only visible when filter is active */
+  if (resetBtn) resetBtn.style.display = isToday ? 'none' : '';
+
+  /* Main label text */
   if (lbl) lbl.textContent = isToday ? 'Hari Ini' : selectedDate;
+
+  /* Pill sub-label text */
+  if (pillLbl) pillLbl.textContent = isToday ? 'Tanggal' : 'Filter';
+
+  /* Visual state: active = yellow highlight */
+  if (dateBtnEl) dateBtnEl.classList.toggle('filter-active', !isToday);
+
+  /* Update title tooltip */
+  if (dateBtnEl) {
+    dateBtnEl.title = isToday
+      ? 'Klik untuk memilih tanggal data'
+      : `Filter aktif: ${selectedDate} — klik untuk ubah`;
+  }
 }
 
 // ── JSONP loader ──────────────────────────────────────────────────────────────
@@ -909,11 +968,13 @@ function renderRingkasan() {
   const mkQ   = (d, lbl) =>
     `<button class="dfq-btn${ringkasanActiveQuick === d ? ' active' : ''}" onclick="setRingkasanQuickFilter(${d})">${lbl}</button>`;
 
+  const _rkHdrActive = selectedDate !== _todayDDMMYYYY();
   sec.innerHTML = `
     <div class="section-title" id="sec-tren" style="margin-top:1.75rem">Tren Harian</div>
     <div class="combo-panel">
       <div class="combo-chart">
         <h3>Tren Ringkasan${activeUlp !== 'all' ? ` <span style="font-size:.72rem;font-weight:500;text-transform:none;letter-spacing:0">· ${activeUlp}</span>` : ''}</h3>
+        ${_rkHdrActive ? `<div class="tren-sync-chip"><i class="bi bi-funnel-fill"></i> Dibatasi s.d. <strong>${selectedDate}</strong> &nbsp;·&nbsp; sesuai filter header &nbsp;<button onclick="resetToToday()" title="Hapus filter & kembali ke hari ini" style="background:none;border:none;cursor:pointer;color:inherit;font-size:.75rem;padding:0;font-weight:700;opacity:.8">× Hapus</button></div>` : ''}
         <div class="filter-row">
           <div class="date-filter-bar">
             ${mkQ(0,'Semua')}${mkQ(7,'7H')}${mkQ(14,'14H')}${mkQ(30,'30H')}
@@ -921,8 +982,9 @@ function renderRingkasan() {
             <input type="date" class="dfq-input" id="ringkasanFrom" value="${ringkasanFilter.from}"
               onchange="setRingkasanDateRange(this.value,document.getElementById('ringkasanTo').value)">
             <span class="dfq-sep">–</span>
-            <input type="date" class="dfq-input" id="ringkasanTo" value="${ringkasanFilter.to}"
-              onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)">
+            <input type="date" class="dfq-input${_rkHdrActive ? ' dfq-input-synced' : ''}" id="ringkasanTo" value="${ringkasanFilter.to}"
+              onchange="setRingkasanDateRange(document.getElementById('ringkasanFrom').value,this.value)"
+              ${_rkHdrActive ? `title="Batas tanggal otomatis dari filter header (${selectedDate})"` : ''}>
           </div>
           <button class="dfq-btn" onclick="resetRingkasanFilter()" title="Atur ulang filter tanggal" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Atur Ulang</button>
         </div>
@@ -1049,6 +1111,7 @@ function renderRiwayat() {
   const mkQR = (d, lbl) =>
     `<button class="dfq-btn${riwayatActiveQuick === d ? ' active' : ''}" onclick="setRiwayatQuickFilter(${d})">${lbl}</button>`;
 
+  const _rvHdrActive = selectedDate !== _todayDDMMYYYY();
   sec.innerHTML = `
     <div class="section-title" id="sec-pencacah" style="margin-top:1.75rem">Progres Per Pencacah</div>
     <div class="combo-panel">
@@ -1060,6 +1123,7 @@ function renderRiwayat() {
             ${metricOptHtml}
           </select>
         </h3>
+        ${_rvHdrActive ? `<div class="tren-sync-chip"><i class="bi bi-funnel-fill"></i> Dibatasi s.d. <strong>${selectedDate}</strong> &nbsp;·&nbsp; sesuai filter header &nbsp;<button onclick="resetToToday()" title="Hapus filter & kembali ke hari ini" style="background:none;border:none;cursor:pointer;color:inherit;font-size:.75rem;padding:0;font-weight:700;opacity:.8">× Hapus</button></div>` : ''}
         <div class="filter-row" style="margin-top:.5rem">
         <div class="date-filter-bar">
           ${mkQR(0,'Semua')}${mkQR(7,'7H')}${mkQR(14,'14H')}${mkQR(30,'30H')}
@@ -1067,8 +1131,9 @@ function renderRiwayat() {
           <input type="date" class="dfq-input" id="riwayatFrom" value="${riwayatFilter.from}"
             onchange="setRiwayatDateRange(this.value,document.getElementById('riwayatTo').value)">
           <span class="dfq-sep">–</span>
-          <input type="date" class="dfq-input" id="riwayatTo" value="${riwayatFilter.to}"
-            onchange="setRiwayatDateRange(document.getElementById('riwayatFrom').value,this.value)">
+          <input type="date" class="dfq-input${_rvHdrActive ? ' dfq-input-synced' : ''}" id="riwayatTo" value="${riwayatFilter.to}"
+            onchange="setRiwayatDateRange(document.getElementById('riwayatFrom').value,this.value)"
+            ${_rvHdrActive ? `title="Batas tanggal otomatis dari filter header (${selectedDate})"` : ''}>
         </div>
         <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Atur ulang semua filter" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Atur Ulang</button>
         <div class="ms-wrap" id="msPencacahWrap">
@@ -1129,14 +1194,17 @@ function renderRiwayat() {
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
 function resetRingkasanFilter() {
-  ringkasanFilter      = { from: '', to: '' };
-  ringkasanActiveQuick = 0;
+  const isToday = selectedDate === _todayDDMMYYYY();
+  // Clear manual range but keep header-imposed "to" cap if active
+  ringkasanFilter      = { from: '', to: isToday ? '' : _selectedDateISO() };
+  ringkasanActiveQuick = isToday ? 0 : -1;
   renderRingkasan();
 }
 
 function resetRiwayatFilter() {
-  riwayatFilter         = { from: '', to: '' };
-  riwayatActiveQuick    = 0;
+  const isToday = selectedDate === _todayDDMMYYYY();
+  riwayatFilter         = { from: '', to: isToday ? '' : _selectedDateISO() };
+  riwayatActiveQuick    = isToday ? 0 : -1;
   riwayatSelectedEmails = new Set(['__all__']);
   riwayatMsQuery        = '';
   buildMsOptions();

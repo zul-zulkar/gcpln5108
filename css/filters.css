@@ -24,6 +24,39 @@ input.dfq-input[type="date"] {
 }
 input.dfq-input[type="date"]:focus { border-color: var(--primary-light); }
 
+/* Input "to" saat disinkron dari filter header */
+input.dfq-input.dfq-input-synced[type="date"] {
+  border-color: #f59e0b;
+  background: rgba(245,158,11,.08);
+  color: var(--text);
+}
+input.dfq-input.dfq-input-synced[type="date"]:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245,158,11,.25);
+}
+
+/* ── Chip notifikasi sinkronisasi tren ──────────────────────────────────── */
+.tren-sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: rgba(245,158,11,.15);
+  border: 1px solid rgba(245,158,11,.45);
+  color: #92400e;
+  border-radius: 6px;
+  padding: .28rem .65rem;
+  font-size: .72rem;
+  font-weight: 500;
+  margin-bottom: .55rem;
+  line-height: 1.4;
+}
+[data-theme="dark"] .tren-sync-chip {
+  background: rgba(245,158,11,.12);
+  border-color: rgba(245,158,11,.35);
+  color: #fde68a;
+}
+.tren-sync-chip i { font-size: .75rem; }
+
 /* ── Multi-select Pencacah ───────────────────────────────────────────────── */
 .ms-wrap { position: relative; }
 .ms-trigger {
