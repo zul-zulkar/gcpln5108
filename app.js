@@ -20,6 +20,7 @@ const GVZ_UTAMA     = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/
 const GVZ_BASE      = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetCB&headers=1&sheet=Riwayat&t=${Date.now()}`;
 const GVZ_RINGKASAN = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRingkasanCB&headers=1&sheet=Ringkasan&t=${Date.now()}`;
 const GVZ_RIWAYAT   = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetRiwayatCB&headers=1&sheet=Riwayat&t=${Date.now()}`;
+const GVZ_TARGET    = () => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:_gsheetTargetCB&headers=1&sheet=Target_Prabayar&t=${Date.now()}`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let ulpMap     = {};   // email.toLowerCase() → ULP name (from Utama tab)
@@ -53,6 +54,119 @@ let drilldownEmail = null;        // email of bar-chart-clicked enumerator, null
 let alertThresholdPasca = 0;      // dynamic default = overall pct pasca for current ULP
 let alertThresholdPraba = 0;      // dynamic default = overall pct praba for current ULP
 let alertPanelOpen = false;
+
+// ── Target Prabayar ──────────────────────────────────────────────────────────
+let targetConfig  = { praba_total: 0, praba_ulp: {} }; // effective (sheet + override)
+let _sheetTargets = null;  // raw values loaded from sheet (null = sheet not yet loaded)
+
+// Loads config.js DEFAULT_TARGETS as initial fallback (before sheet or localStorage loads)
+function _loadTargetConfig() {
+  try {
+    if (typeof CONFIG !== 'undefined' && CONFIG.DEFAULT_TARGETS) {
+      targetConfig = Object.assign({ praba_total: 0, praba_ulp: {} }, CONFIG.DEFAULT_TARGETS);
+    }
+  } catch(e) {}
+}
+
+// Fetch Target_Prabayar sheet — called on init and on every data refresh
+function loadTargetSheet() {
+  const old = document.getElementById('_gsheet_target_script');
+  if (old) old.remove();
+  const s = document.createElement('script');
+  s.id      = '_gsheet_target_script';
+  s.src     = GVZ_TARGET();
+  s.onerror = () => { /* sheet not present — silently keep existing config */ };
+  document.head.appendChild(s);
+}
+
+// JSONP callback for Target_Prabayar sheet
+function _gsheetTargetCB(data) {
+  try {
+    const cols = data.table.cols || [];
+    const rows = data.table.rows || [];
+    const ci   = kw => cols.findIndex(c => (c.label || c.id || '').toLowerCase().includes(kw));
+    const cv   = (c, i) => (c?.[i]?.v ?? null);
+
+    // Detect ULP column and target/value column
+    const iUlp = ci('ulp');
+    const iTgt  = ['target','jumlah','pelanggan','rekening','nilai'].reduce(
+      (f, kw) => f >= 0 ? f : ci(kw), -1
+    );
+    if (iUlp < 0 || iTgt < 0) return;  // unrecognised column names — skip
+
+    const sheet = { praba_total: 0, praba_ulp: {} };
+    rows.forEach(row => {
+      const c      = row.c || [];
+      const ulpRaw = cv(c, iUlp);
+      const tgtRaw = cv(c, iTgt);
+      if (ulpRaw === null || tgtRaw === null) return;
+      const ulpStr = String(ulpRaw).trim();
+      const tgtNum = +tgtRaw || 0;
+      if (!ulpStr || !tgtNum) return;
+      sheet.praba_ulp[ulpStr] = tgtNum;
+    });
+    // Total selalu dihitung otomatis dari jumlah target semua ULP
+    sheet.praba_total = Object.values(sheet.praba_ulp).reduce((a, b) => a + b, 0);
+
+    _sheetTargets = sheet;
+
+    // Merge: sheet = base; localStorage per-key = explicit override
+    const saved = localStorage.getItem('gcpln_targets');
+    if (saved) {
+      try {
+        const local = JSON.parse(saved);
+        const mergedUlp = { ...sheet.praba_ulp, ...local.praba_ulp };
+        targetConfig = {
+          praba_ulp:   mergedUlp,
+          praba_total: Object.values(mergedUlp).reduce((a, b) => a + b, 0),
+        };
+      } catch(e) {
+        targetConfig = sheet;
+      }
+    } else {
+      targetConfig = sheet;
+    }
+
+    if (allData.length) render();
+    const panel = document.getElementById('sbTargetBody');
+    if (panel && panel.style.display !== 'none') _renderTargetInputs();
+
+  } catch(e) {
+    console.warn('[Target] Gagal memuat sheet Target_Prabayar:', e);
+  }
+}
+
+// Save sidebar edits as explicit override (merged on top of sheet next load)
+function _saveTargetConfig() {
+  localStorage.setItem('gcpln_targets', JSON.stringify(targetConfig));
+  render();
+}
+
+// Normalise ULP key: uppercase, trim, collapse runs of whitespace
+function _normUlp(s) {
+  return String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+// Returns target for given ULP ('all' = overall total), 0 if not set.
+// Falls back to case/space-insensitive match so sheet names don't have
+// to exactly match the names that come from the main spreadsheet.
+function _getTargetPraba(ulp) {
+  if (!ulp || ulp === 'all') return +(targetConfig.praba_total) || 0;
+  const map = targetConfig.praba_ulp || {};
+  if (map[ulp] > 0) return +map[ulp];                    // exact hit
+  const norm = _normUlp(ulp);
+  const entry = Object.entries(map).find(([k]) => _normUlp(k) === norm);
+  return entry ? +entry[1] : 0;
+}
+
+function openTargetPanel() {
+  // Open sidebar then open target panel
+  setTimeout(() => {
+    openSidebar();
+    const body = document.getElementById('sbTargetBody');
+    if (body && body.style.display === 'none') toggleSbTarget();
+  }, 80);
+}
 let selectedDate    = '';         // DD/MM/YYYY — default = hari ini, diset saat init
 
 // ── Date selection helpers ────────────────────────────────────────────────────
@@ -538,11 +652,28 @@ function ulpOverviewSection() {
 
   const cards = ulpList.map((u, idx) => {
     const uData = allData.filter(d => d.ulp === u);
-    const tp  = totals(uData, 'pasca');
-    const tpr = totals(uData, 'praba');
-    const rp  = pct(tp.submit,  tp.open,  tp.reject);
-    const rr  = pct(tpr.submit, tpr.open, tpr.reject);
+    const tp    = totals(uData, 'pasca');
+    const tpr   = totals(uData, 'praba');
+    const rp    = pct(tp.submit, tp.open, tp.reject);
     const isAct = activeUlp === u;
+
+    // Prabayar: use target-based progress when target is set for this ULP
+    const prabaTarget = _getTargetPraba(u);
+    let rrPct, rrBar, rrVal, rrExtra;
+    if (prabaTarget > 0) {
+      rrPct   = +((tpr.submit / prabaTarget * 100).toFixed(1));
+      rrBar   = Math.min(rrPct, 100);
+      rrVal   = `${tpr.submit.toLocaleString('id-ID')}/${prabaTarget.toLocaleString('id-ID')}`;
+      rrExtra = tpr.submit >= prabaTarget
+        ? '<span class="ulp-tgt-done"><i class="bi bi-check-circle-fill"></i></span>'
+        : '';
+    } else {
+      rrPct   = pct(tpr.submit, tpr.open, tpr.reject);
+      rrBar   = rrPct;
+      rrVal   = `${tpr.submit.toLocaleString('id-ID')} sub`;
+      rrExtra = '';
+    }
+
     return `
       <div class="ulp-row${isAct ? ' ulp-active' : ''}" style="--i:${idx}" onclick="filterByUlp(${idx + 1})">
         <div class="ulp-row-top">
@@ -557,9 +688,10 @@ function ulpOverviewSection() {
         </div>
         <div class="ulp-prog-row">
           <span class="ulp-badge praba">Praba</span>
-          <div class="ulp-prog-track"><div class="ulp-prog-fill-r" style="width:${rr}%"></div></div>
-          <span class="ulp-prog-pct">${rr}%</span>
-          <span class="ulp-prog-val">${tpr.submit.toLocaleString('id-ID')} sub</span>
+          <div class="ulp-prog-track"><div class="ulp-prog-fill-r${tpr.submit >= prabaTarget && prabaTarget > 0 ? ' ulp-fill-done' : ''}" style="width:${rrBar}%"></div></div>
+          <span class="ulp-prog-pct">${rrPct}%</span>
+          <span class="ulp-prog-val">${rrVal}</span>
+          ${rrExtra}
         </div>
       </div>`;
   }).join('');
@@ -572,8 +704,52 @@ function ulpOverviewSection() {
 }
 
 function summaryCard(sfx, label, t, count) {
-  const rate = pct(t.submit, t.open, t.reject);
   const cls  = sfx === 'pasca' ? 'pasca' : 'praba';
+  const rate = pct(t.submit, t.open, t.reject);
+  let progHtml;
+
+  if (sfx === 'praba') {
+    const tgt = _getTargetPraba(activeUlp);
+    if (tgt > 0) {
+      const rawPct = +((t.submit / tgt * 100).toFixed(1));
+      const barW   = Math.min(rawPct, 100);
+      const sisa   = Math.max(tgt - t.submit, 0);
+      const done   = t.submit >= tgt;
+      progHtml = `
+        <div class="prog-section">
+          <div class="prog-meta">
+            <span>Progres Submit</span>
+            <strong>${rawPct}%</strong>
+          </div>
+          <div class="prog-track">
+            <div class="prog-fill${done ? ' prog-fill-done' : ''}" style="width:${barW}%"></div>
+          </div>
+          <div class="prog-target-info">
+            <span class="prog-target-fraction">${t.submit.toLocaleString('id-ID')} / ${tgt.toLocaleString('id-ID')} pelanggan</span>
+            ${done
+              ? '<span class="prog-target-done"><i class="bi bi-check-circle-fill"></i> Target Tercapai</span>'
+              : `<span class="prog-target-sisa">${sisa.toLocaleString('id-ID')} sisa</span>`}
+          </div>
+        </div>`;
+    } else {
+      progHtml = `
+        <div class="prog-section">
+          <div class="prog-meta"><span>Tingkat Submit</span><strong>${rate}%</strong></div>
+          <div class="prog-track"><div class="prog-fill" style="width:${rate}%"></div></div>
+          <div class="prog-target-notset">
+            <i class="bi bi-bullseye"></i> Belum ada target
+            <button onclick="openTargetPanel()" class="prog-target-setbtn">Set target</button>
+          </div>
+        </div>`;
+    }
+  } else {
+    progHtml = `
+      <div class="prog-section">
+        <div class="prog-meta"><span>Tingkat Submit</span><strong>${rate}%</strong></div>
+        <div class="prog-track"><div class="prog-fill" style="width:${rate}%"></div></div>
+      </div>`;
+  }
+
   return `
     <div class="s-card ${cls}">
       <div class="s-card-header">
@@ -594,15 +770,7 @@ function summaryCard(sfx, label, t, count) {
           <div class="s-stat-lbl">Rejected</div>
         </div>
       </div>
-      <div class="prog-section">
-        <div class="prog-meta">
-          <span>Tingkat Submit</span>
-          <strong>${rate}%</strong>
-        </div>
-        <div class="prog-track">
-          <div class="prog-fill" style="width:${rate}%"></div>
-        </div>
-      </div>
+      ${progHtml}
     </div>`;
 }
 
@@ -943,13 +1111,20 @@ function renderRingkasan() {
   const openPasca   = display.map(d => n(d.open_pasca));
   const openPraba   = display.map(d => n(d.open_praba));
   const pctPascaArr = display.map(d => pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)));
-  const pctPrabaArr = display.map(d => pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
+
+  // Prabayar %: gunakan target jika sudah ditetapkan, fallback ke completion rate
+  const prabaChartTgt = _getTargetPraba(activeUlp);
+  const pctPrabaArr   = prabaChartTgt > 0
+    ? display.map(d => +((n(d.submit_praba) / prabaChartTgt * 100).toFixed(1)))
+    : display.map(d => pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
 
   // Table: sortable
   const arrH    = col => ringkasanTblSortCol === col ? (ringkasanTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
   const tblRows = _sortArr(filt, ringkasanTblSortCol, ringkasanTblSortDir).map(d => {
     const pp = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
-    const pr = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+    const pr = prabaChartTgt > 0
+      ? +((n(d.submit_praba) / prabaChartTgt * 100).toFixed(1))
+      : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
     return `
     <tr>
       <td>${d.tanggal}</td>
@@ -1010,7 +1185,7 @@ function renderRingkasan() {
               <th class="th-pasca" onclick="sortRingkasanTbl('reject_pasca')" style="cursor:pointer">Reject${arrH('reject_pasca')}</th>
               <th class="th-praba" onclick="sortRingkasanTbl('open_praba')" style="cursor:pointer">Open${arrH('open_praba')}</th>
               <th class="th-praba" onclick="sortRingkasanTbl('submit_praba')" style="cursor:pointer">Submit${arrH('submit_praba')}</th>
-              <th class="th-praba" style="cursor:default">%</th>
+              <th class="th-praba" style="cursor:default" title="${prabaChartTgt > 0 ? `% vs target ${prabaChartTgt.toLocaleString('id-ID')} pelanggan` : '% selesai'}">${prabaChartTgt > 0 ? '%🎯' : '%'}</th>
               <th class="th-praba" onclick="sortRingkasanTbl('reject_praba')" style="cursor:pointer">Reject${arrH('reject_praba')}</th>
             </tr>
           </thead>
@@ -1030,7 +1205,8 @@ function renderRingkasan() {
       datasets: [
         { label: 'Submit Pascabayar', data: submitPasca, borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,.1)',  tension: .3, pointRadius: 4, fill: true,
           datalabels: { display: true, clip: false, formatter: (_v, ctx) => fmtPct(pctPascaArr[ctx.dataIndex]) + '%', color: '#2563EB', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
-        { label: 'Submit Prabayar',   data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true,
+        { label: prabaChartTgt > 0 ? `Submit Prabayar (vs target ${prabaChartTgt.toLocaleString('id-ID')})` : 'Submit Prabayar',
+          data: submitPraba, borderColor: '#8B5CF6', backgroundColor: 'rgba(139,92,246,.1)', tension: .3, pointRadius: 4, fill: true,
           datalabels: { display: true, clip: false, formatter: (_v, ctx) => fmtPct(pctPrabaArr[ctx.dataIndex]) + '%', color: '#7C3AED', font: { size: 10, weight: '600' }, anchor: 'end', align: 'top', offset: 3 } },
         { label: 'Open Pascabayar',   data: openPasca,   borderColor: '#93C5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
         { label: 'Open Prabayar',     data: openPraba,   borderColor: '#C4B5FD', borderDash: [4,3], tension: .3, pointRadius: 3, fill: false, datalabels: { display: false } },
@@ -1677,7 +1853,7 @@ function saveSheetConfig() {
   localStorage.setItem('cfg_sheet_id', sid);
   SHEET_ID = sid;
   msg.innerHTML = `<i class="bi bi-check-circle-fill"></i> Disimpan — Sheet ID: ${sid}`;
-  loadData(); loadRingkasan(); loadRiwayat();
+  loadData(); loadRingkasan(); loadRiwayat(); loadTargetSheet();
 }
 function resetSheetConfig() {
   localStorage.removeItem('cfg_sheet_id');
@@ -1685,7 +1861,7 @@ function resetSheetConfig() {
   document.getElementById('cfgUrlSheet').value = '';
   SHEET_ID = _DEFAULT_SHEET_ID;
   document.getElementById('cfgMsg').innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> Kembali ke sumber data default.';
-  loadData(); loadRingkasan(); loadRiwayat();
+  loadData(); loadRingkasan(); loadRiwayat(); loadTargetSheet();
 }
 
 // ── Count-up animation ────────────────────────────────────────────────────────
@@ -1774,6 +1950,117 @@ function resetAccent() {
   if (el) el.value = '#1F4E79';
 }
 
+// ── Sidebar: Target Prabayar ─────────────────────────────────────────────────
+function toggleSbTarget() {
+  // Close other panels
+  ['sbAlertBody','sbSettingsBody','sbAppearanceBody'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el.style.display !== 'none') {
+      const btnMap = { sbAlertBody:'sbAlertBtn', sbSettingsBody:'sbSettingsBtn', sbAppearanceBody:'sbAppearanceBtn' };
+      _sbToggleExpand(id, btnMap[id]);
+    }
+  });
+  _sbToggleExpand('sbTargetBody', 'sbTargetBtn');
+  const isNowOpen = document.getElementById('sbTargetBody')?.style.display !== 'none';
+  if (isNowOpen) _renderTargetInputs();
+}
+
+function _renderTargetInputs() {
+  const inner = document.getElementById('sbTargetInner');
+  if (!inner) return;
+  const ulps        = ulpList.length ? ulpList : [];
+  const hasSheet    = _sheetTargets !== null;
+  const hasOverride = !!localStorage.getItem('gcpln_targets');
+
+  // Build per-ULP input rows — also cover ULPs from sheet that aren't in ulpList yet
+  const allUlps = ulps.length
+    ? [...new Set([...ulps, ...Object.keys(targetConfig.praba_ulp || {})])]
+    : Object.keys(targetConfig.praba_ulp || {});
+
+  inner.innerHTML = `
+    ${hasSheet
+      ? `<div class="sb-target-src-badge">
+           <i class="bi bi-cloud-check-fill"></i> Dari sheet <strong>Target_Prabayar</strong>
+           ${hasOverride ? '&nbsp;·&nbsp;<span style="color:#f59e0b">ada override lokal</span>' : ''}
+         </div>`
+      : `<p class="sb-target-hint">
+           Buat sheet bernama <strong>Target_Prabayar</strong> di spreadsheet dengan kolom <em>ULP</em> dan <em>Target</em> untuk mengisi otomatis.
+         </p>`
+    }
+    <div class="sb-expand-body-inner">
+      <div class="sb-field-label">Target keseluruhan <small style="font-weight:400;opacity:.65">(otomatis dari jumlah ULP)</small></div>
+      <div class="sb-target-total-row">
+        <span id="tgtPrabaTotalDisplay" style="font-size:.92rem;font-weight:700;color:var(--text);flex:1">
+          ${targetConfig.praba_total > 0 ? targetConfig.praba_total.toLocaleString('id-ID') : '<span style="color:var(--muted);font-weight:400">–</span>'}
+        </span>
+        <span class="sb-target-unit">pelanggan</span>
+      </div>
+      ${allUlps.length ? `
+        <div class="sb-field-label" style="margin-top:.65rem">
+          Target per ULP
+        </div>
+        <div class="sb-target-ulp-list">
+          ${allUlps.map(u => {
+            const cur = allData.length ? totals(allData.filter(d => d.ulp === u), 'praba').submit : 0;
+            // Normalized match: cloud icon if any sheet key matches (case/space-insensitive)
+            const normU = _normUlp(u);
+            const fromSheet = hasSheet && Object.keys(_sheetTargets.praba_ulp || {}).some(k => _normUlp(k) === normU);
+            const curTgt = _getTargetPraba(u);
+            return `
+            <div class="sb-target-ulp-row">
+              <label class="sb-target-ulp-lbl" title="${u}">${u}</label>
+              ${fromSheet ? '<i class="bi bi-cloud-fill sb-tgt-sheet-icon" title="Dari sheet"></i>' : '<i class="bi bi-pencil sb-tgt-sheet-icon" style="opacity:.3" title="Override manual"></i>'}
+              <input type="number" min="0" step="1"
+                value="${curTgt || ''}"
+                placeholder="–"
+                data-ulp="${u}"
+                class="sb-input sb-target-ulp-inp" />
+              <span class="sb-target-cur" title="Submit hari ini: ${cur.toLocaleString('id-ID')}">${cur > 0 ? cur.toLocaleString('id-ID') + '✓' : '–'}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      ` : `<p class="sb-target-hint" style="margin-top:.35rem">${hasSheet ? 'Sheet dimuat — ULP tersedia setelah data utama dimuat.' : 'Data ULP tersedia setelah data dimuat.'}</p>`}
+      <div class="sb-btn-row" style="margin-top:.65rem">
+        <button class="sb-sm-btn sb-sm-btn-primary" onclick="_applyTargetInputs()">
+          <i class="bi bi-floppy"></i> Simpan Override
+        </button>
+        <button class="sb-sm-btn" onclick="_resetTargets()" title="${hasSheet ? 'Hapus override lokal, kembali ke nilai sheet' : 'Kosongkan semua target'}">
+          <i class="bi bi-arrow-counterclockwise"></i> ${hasSheet ? 'Ke Sheet' : 'Hapus Semua'}
+        </button>
+      </div>
+      <div class="sb-msg" id="sbTargetMsg"></div>
+    </div>`;
+}
+
+function _applyTargetInputs() {
+  targetConfig.praba_ulp = {};
+  document.querySelectorAll('.sb-target-ulp-inp').forEach(inp => {
+    const ulp = inp.dataset.ulp;
+    const val = +(inp.value) || 0;
+    if (ulp && val > 0) targetConfig.praba_ulp[ulp] = val;
+  });
+  // Total selalu dihitung otomatis dari jumlah target semua ULP
+  targetConfig.praba_total = Object.values(targetConfig.praba_ulp).reduce((a, b) => a + b, 0);
+  _saveTargetConfig();
+  // Refresh computed total display
+  const totalDisp = document.getElementById('tgtPrabaTotalDisplay');
+  if (totalDisp) totalDisp.innerHTML = targetConfig.praba_total > 0
+    ? targetConfig.praba_total.toLocaleString('id-ID')
+    : '<span style="color:var(--muted);font-weight:400">–</span>';
+  const msg = document.getElementById('sbTargetMsg');
+  if (msg) { msg.textContent = '✓ Target tersimpan'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+}
+
+function _resetTargets() {
+  localStorage.removeItem('gcpln_targets');
+  // Revert to pure sheet values (if loaded), else empty
+  targetConfig = _sheetTargets
+    ? { praba_total: _sheetTargets.praba_total, praba_ulp: { ..._sheetTargets.praba_ulp } }
+    : { praba_total: 0, praba_ulp: {} };
+  if (allData.length) render();
+  _renderTargetInputs();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   // Explicitly register datalabels plugin in case auto-registration didn't fire
   if (typeof ChartDataLabels !== 'undefined' && typeof Chart !== 'undefined') {
@@ -1806,12 +2093,15 @@ window.addEventListener('scroll', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 _loadSheetConfig();
+_loadTargetConfig();          // apply config.js DEFAULT_TARGETS as early fallback
 _populateSettingsInputs();   // pre-fill URL input meski panel settings belum dibuka
 loadAccentConfig();           // apply saved accent color
 // alertThreshold defaults are computed dynamically from data in _refreshAlertBadge()
-setInterval(loadData,    5 * 60 * 1000);
+setInterval(loadData,       5 * 60 * 1000);
 setInterval(loadRingkasan,  5 * 60 * 1000);
-setInterval(loadRiwayat, 5 * 60 * 1000);
+setInterval(loadRiwayat,    5 * 60 * 1000);
+setInterval(loadTargetSheet, 5 * 60 * 1000);
 loadData();
 loadRingkasan();
 loadRiwayat();
+loadTargetSheet();

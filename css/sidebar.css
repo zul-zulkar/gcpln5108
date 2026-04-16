@@ -155,6 +155,60 @@
 .alert-rate-badge.warn { background: #FEE2E2; color: #DC2626; }
 .alert-rate-badge.ok   { background: #D1FAE5; color: #059669; }
 
+/* ── Target Prabayar section ─────────────────────────────────────────────── */
+.sb-target-src-badge {
+  display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
+  background: rgba(16,185,129,.12);
+  border: 1px solid rgba(16,185,129,.3);
+  color: #065F46;
+  border-radius: 6px; padding: .3rem .65rem;
+  font-size: .7rem; margin: .45rem .75rem .1rem;
+}
+[data-theme="dark"] .sb-target-src-badge {
+  background: rgba(16,185,129,.1); border-color: rgba(16,185,129,.25); color: #6EE7B7;
+}
+.sb-target-src-badge i { font-size: .78rem; flex-shrink: 0; }
+.sb-expand-body-inner { padding: 0; }
+.sb-tgt-sheet-icon { font-size: .65rem; color: #10B981; flex-shrink: 0; }
+
+.sb-target-hint {
+  font-size: .7rem; color: var(--muted); line-height: 1.5;
+  padding: .45rem .75rem .35rem; margin: 0;
+}
+.sb-target-total-row {
+  display: flex; align-items: center; gap: .4rem;
+  padding: 0 .75rem .3rem;
+}
+.sb-target-unit {
+  font-size: .7rem; color: var(--muted); white-space: nowrap; flex-shrink: 0;
+}
+.sb-target-ulp-list {
+  padding: 0 .75rem;
+  display: flex; flex-direction: column; gap: .28rem;
+  max-height: 220px; overflow-y: auto;
+}
+.sb-target-ulp-row {
+  display: flex; align-items: center; gap: .35rem;
+}
+.sb-target-ulp-lbl {
+  flex: 1; font-size: .72rem; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;
+}
+.sb-target-ulp-inp {
+  width: 76px !important; margin: 0 !important; text-align: right;
+  font-size: .73rem !important; padding: .22rem .35rem !important;
+}
+.sb-target-cur {
+  font-size: .67rem; color: var(--muted); white-space: nowrap;
+  flex-shrink: 0; opacity: .75;
+}
+/* .sb-field-label already exists but scoped inside .sb-accent-row — define standalone */
+.sb-expand-body .sb-field-label {
+  padding: .5rem .75rem .2rem;
+  font-size: .7rem; font-weight: 600; color: var(--muted);
+  display: block; margin: 0;
+}
+
 /* Settings expand body */
 .sb-input-label { display: block; font-size: .7rem; font-weight: 600; color: var(--muted); padding: .55rem .75rem .25rem; }
 .sb-input {

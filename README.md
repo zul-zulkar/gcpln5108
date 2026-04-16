@@ -16,6 +16,7 @@ Sistem ini terdiri dari dua komponen:
 3. [Menjalankan Aplikasi Scraper (GUI)](#bagian-3--menjalankan-aplikasi-scraper-gui)
 4. [Membuka & Menggunakan Dashboard](#bagian-4--membuka--menggunakan-dashboard)
 5. [Troubleshooting](#troubleshooting)
+6. [Changelog](#changelog)
 
 ---
 
@@ -47,15 +48,37 @@ Ikuti langkah ini **satu kali** sebelum pertama kali menjalankan scraper.
 
 1. Buka [Google Sheets](https://sheets.google.com) → klik **+** untuk buat spreadsheet baru
 2. Beri nama, misalnya: `Rekap FASIH 2025`
-3. Buat **tiga tab** (klik **+** di pojok kiri bawah) dengan nama persis:
-   - `Utama`
-   - `Ringkasan`
-   - `Riwayat`
+3. Buat tab berikut (klik **+** di pojok kiri bawah):
+
+| Tab | Wajib? | Fungsi |
+|-----|--------|--------|
+| `Utama` | ✅ | Daftar petugas & ULP untuk tombol filter dashboard |
+| `Ringkasan` | ✅ | Ringkasan harian (diisi Apps Script) |
+| `Riwayat` | ✅ | Detail per pencacah per hari (diisi Apps Script) |
+| `Target_Prabayar` | Opsional | Target pelanggan prabayar per ULP — jika diisi, dashboard otomatis menampilkan progres vs target |
 
 contoh spreadsheet sumber data ada pada tautan berikut:
 https://docs.google.com/spreadsheets/d/1BGXuTJkaOYJKT6Mo0ldR1mmT2wLNRYqyRcmcxOnSCa0/edit?usp=sharing 
 
 > **Penting:** Nama tab harus persis seperti di atas (huruf kapital di awal). Dashboard membaca tab berdasarkan nama ini.
+
+---
+
+### Langkah 1b — (Opsional) Isi tab Target_Prabayar
+
+Buat tab bernama `Target_Prabayar` dengan dua kolom:
+
+| ULP | Target |
+|-----|--------|
+| ULP Singaraja | 4500 |
+| ULP Seririt | 2800 |
+| ULP Buleleng | 1200 |
+
+**Aturan:**
+- Baris pertama = header; nama kolom bebas asal mengandung kata `ULP` dan `Target` (atau `Jumlah`, `Rekening`, `Nilai`)
+- Satu baris per ULP — **tidak perlu baris "Total"**, dashboard menghitung jumlah keseluruhan secara otomatis
+- Nama ULP tidak harus sama persis dengan yang ada di tab `Utama` — perbedaan huruf besar/kecil dan spasi diabaikan secara otomatis
+- Jika tab ini tidak ada, dashboard tetap berfungsi normal; progres prabayar hanya tidak menampilkan persentase vs target
 
 ---
 
@@ -385,13 +408,33 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 ### Cara membaca dashboard
 
 - **Tombol ☰** di pojok kiri atas → buka/tutup sidebar navigasi
-- **Sidebar** → berisi navigasi antar section, tombol refresh, alert threshold, settings, dan pengaturan tampilan
+- **Sidebar** → berisi navigasi antar section, tombol refresh, alert threshold, target prabayar, settings, dan pengaturan tampilan
 - **Filter ULP** di bagian atas konten → klik untuk melihat per kantor cabang
 - **Kartu ringkasan** → total Open / Submitted / Rejected hari ini
+  - Prabayar: jika target sudah diisi, progress bar menampilkan **Submit ÷ Target** (bukan ÷ total pelanggan)
+  - Muncul keterangan sisa pelanggan yang belum tercapai, atau tanda ✓ jika target sudah terpenuhi
 - **Tabel per pencacah** → hijau = sudah submit semua, merah = masih ada open
-- **Grafik tren harian** → progress dari awal periode survei
+- **Filter tanggal** (header kanan atas):
+  - Saat filter aktif, tombol berubah warna **kuning/oranye** dan berlabel **"Filter"** agar mudah dikenali
+  - Tombol **× Reset** muncul di sebelahnya untuk kembali ke data hari ini
+  - Filter ini **otomatis menyinkronkan** batas atas tanggal pada grafik Tren Harian dan Progres per Pencacah — banner oranye muncul di dalam grafik sebagai penanda
+- **Grafik tren harian** → progress dari awal periode survei; label persentase prabayar menampilkan **% vs target** jika target sudah ditetapkan (kolom header tabel berubah menjadi **%🎯**)
 - **Grafik per pencacah** → riwayat historis, bisa difilter per ULP dan per individu
 - **Tombol ↑** di pojok kanan bawah → kembali ke atas halaman
+
+---
+
+### Mengatur target prabayar
+
+Target prabayar menentukan denominasi progress bar dan persentase di grafik tren. Ada tiga cara mengisinya (prioritas dari bawah ke atas):
+
+| Cara | Keterangan | Berlaku untuk |
+|------|------------|---------------|
+| `config.js` (`DEFAULT_TARGETS`) | Fallback awal sebelum sheet dimuat | Semua pengguna |
+| Tab `Target_Prabayar` di spreadsheet | **Sumber utama** — langsung terbaca saat dashboard dibuka | Semua pengguna |
+| Sidebar → **Target Prabayar** | Override manual per browser — menimpa nilai sheet untuk ULP yang diubah | Hanya browser tersebut |
+
+Untuk **menghapus override lokal** dan kembali ke nilai sheet, buka sidebar → Target Prabayar → klik **↺ Ke Sheet**.
 
 ---
 
@@ -424,9 +467,29 @@ Pengaturan ini tersimpan di browser (tidak mengubah `config.js`). Klik **↺ Def
 **Auto-run tidak berjalan**
 → Pastikan aplikasi tetap terbuka dan centang sudah diaktifkan.
 
+**Target prabayar tidak terbaca dari sheet**
+→ Pastikan tab bernama persis `Target_Prabayar` (huruf kapital T dan P). Periksa nama kolom: harus mengandung kata `ULP` dan salah satu dari `Target`, `Jumlah`, `Rekening`, atau `Nilai`. Buka konsol browser (F12 → Console) untuk melihat pesan error `[Target]`.
+
+**Progress bar prabayar masih menampilkan % selesai, bukan % vs target**
+→ Klik **🔄 Refresh** untuk memuat ulang semua data termasuk sheet target. Jika tetap tidak berubah, pastikan tab `Target_Prabayar` sudah memiliki data dan spreadsheet masih diatur "Anyone with the link → Viewer".
+
 ---
 
 ## Changelog
+
+### v1.3.0 — 16 April 2026
+
+**Dashboard**
+
+- **Target Prabayar** — progress bar dan persentase prabayar kini menggunakan `submit ÷ target` (bukan `÷ total pelanggan`) jika target sudah ditetapkan; muncul keterangan sisa pelanggan atau tanda ✓ tercapai
+- **Sheet `Target_Prabayar`** — dashboard otomatis membaca target per ULP dari tab baru ini; total keseluruhan dihitung otomatis dari jumlah semua ULP (tidak perlu baris "Total" di sheet)
+- **Pencocokan nama ULP fleksibel** — perbedaan huruf besar/kecil dan spasi antara sheet target dan data utama diabaikan secara otomatis
+- **Override target via sidebar** — bagian "Target Prabayar" di sidebar memungkinkan pengguna mengubah target per ULP per browser; nilai sheet tetap menjadi basis dan dapat dipulihkan kapan saja
+- **Filter tanggal aktif lebih jelas** — saat filter tanggal header aktif, tombol berubah warna kuning/oranye dengan label "Filter" dan animasi denyut; tombol "× Reset" muncul di sebelahnya
+- **Sinkronisasi otomatis filter ke grafik tren** — filter tanggal header otomatis membatasi batas atas tanggal pada grafik Tren Harian dan Progres per Pencacah; banner oranye muncul sebagai penanda di dalam grafik
+- **Grafik tren — % vs target** — label persentase prabayar di grafik Tren Ringkasan menampilkan persentase terhadap target (bukan completion rate); kolom "%" di tabel ringkasan berubah menjadi "%🎯" saat target aktif
+
+---
 
 ### v1.2.0 — 25 Maret 2026
 

@@ -27,8 +27,10 @@ function toggleSbAlert() {
   // Close others
   const settBody = document.getElementById('sbSettingsBody');
   const appBody  = document.getElementById('sbAppearanceBody');
+  const tgtBody  = document.getElementById('sbTargetBody');
   if (settBody && settBody.style.display !== 'none') _sbToggleExpand('sbSettingsBody',  'sbSettingsBtn');
   if (appBody  && appBody.style.display  !== 'none') _sbToggleExpand('sbAppearanceBody','sbAppearanceBtn');
+  if (tgtBody  && tgtBody.style.display  !== 'none') _sbToggleExpand('sbTargetBody',    'sbTargetBtn');
 
   _sbToggleExpand('sbAlertBody', 'sbAlertBtn');
   const isNowOpen = document.getElementById('sbAlertBody')?.style.display !== 'none';
@@ -43,8 +45,10 @@ function toggleSbAlert() {
 function toggleSbSettings() {
   const alertBody = document.getElementById('sbAlertBody');
   const appBody   = document.getElementById('sbAppearanceBody');
+  const tgtBody   = document.getElementById('sbTargetBody');
   if (alertBody && alertBody.style.display !== 'none') _sbToggleExpand('sbAlertBody',      'sbAlertBtn');
   if (appBody   && appBody.style.display   !== 'none') _sbToggleExpand('sbAppearanceBody', 'sbAppearanceBtn');
+  if (tgtBody   && tgtBody.style.display   !== 'none') _sbToggleExpand('sbTargetBody',     'sbTargetBtn');
 
   _sbToggleExpand('sbSettingsBody', 'sbSettingsBtn');
   if (document.getElementById('sbSettingsBody')?.style.display !== 'none') {
@@ -55,8 +59,10 @@ function toggleSbSettings() {
 function toggleSbAppearance() {
   const alertBody = document.getElementById('sbAlertBody');
   const settBody  = document.getElementById('sbSettingsBody');
+  const tgtBody   = document.getElementById('sbTargetBody');
   if (alertBody && alertBody.style.display !== 'none') _sbToggleExpand('sbAlertBody',     'sbAlertBtn');
   if (settBody  && settBody.style.display  !== 'none') _sbToggleExpand('sbSettingsBody',  'sbSettingsBtn');
+  if (tgtBody   && tgtBody.style.display   !== 'none') _sbToggleExpand('sbTargetBody',    'sbTargetBtn');
 
   _sbToggleExpand('sbAppearanceBody', 'sbAppearanceBtn');
   _updateSbThemeLabel();

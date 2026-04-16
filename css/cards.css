@@ -46,8 +46,10 @@
 .ulp-prog-track { flex: 1; background: var(--trk-bg); border-radius: 999px; height: 7px; overflow: hidden; }
 .ulp-prog-fill-p { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#3B82F6,#60A5FA); transition: width .55s cubic-bezier(.4,0,.2,1); }
 .ulp-prog-fill-r { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#8B5CF6,#A78BFA); transition: width .55s cubic-bezier(.4,0,.2,1); }
+.ulp-prog-fill-r.ulp-fill-done { background: linear-gradient(90deg,#10B981,#34D399); }
+.ulp-tgt-done { font-size: .78rem; color: #10B981; flex-shrink: 0; line-height: 1; }
 .ulp-prog-pct { font-size: .7rem; font-weight: 700; color: var(--text); width: 34px; text-align: right; flex-shrink: 0; }
-.ulp-prog-val { font-size: .65rem; color: var(--muted); width: 60px; text-align: right; flex-shrink: 0; }
+.ulp-prog-val { font-size: .65rem; color: var(--muted); min-width: 60px; text-align: right; flex-shrink: 0; }
 
 /* ── Summary Cards ───────────────────────────────────────────────────────── */
 .summary-grid {
@@ -87,6 +89,28 @@
 .prog-fill   { height: 100%; border-radius: 999px; transition: width .6s ease; }
 .pasca .prog-fill { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
 .praba .prog-fill { background: linear-gradient(90deg, #8B5CF6, #A78BFA); }
+.praba .prog-fill.prog-fill-done { background: linear-gradient(90deg, #10B981, #34D399); }
+
+/* ── Progress target info (prabayar with target set) ────────────────────── */
+.prog-target-info {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: .45rem; font-size: .71rem;
+}
+.prog-target-fraction { color: var(--muted); }
+.prog-target-done { color: #059669; font-weight: 700; display: flex; align-items: center; gap: .2rem; }
+.prog-target-sisa { color: #D97706; font-weight: 600; }
+
+/* "Belum ada target" hint */
+.prog-target-notset {
+  display: flex; align-items: center; gap: .3rem;
+  margin-top: .4rem; font-size: .7rem; color: var(--muted);
+}
+.prog-target-setbtn {
+  background: none; border: none; cursor: pointer;
+  color: var(--primary-light); font-size: .7rem;
+  text-decoration: underline; padding: 0; margin-left: .15rem;
+}
+.prog-target-setbtn:hover { opacity: .75; }
 
 /* ── Top Performers ──────────────────────────────────────────────────────── */
 .top-grid {

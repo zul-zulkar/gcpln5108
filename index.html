@@ -65,7 +65,7 @@
 
       <!-- Refresh -->
       <button class="sb-action-btn" id="btnRefresh"
-        onclick="loadData();loadRingkasan();loadRiwayat()">
+        onclick="loadData();loadRingkasan();loadRiwayat();loadTargetSheet()">
         <span id="refreshIcon"><i class="bi bi-arrow-clockwise"></i></span>
         <span>Perbarui Data</span>
       </button>
@@ -90,6 +90,19 @@
           </label>
         </div>
         <div id="alertList"></div>
+      </div>
+
+      <!-- Target Prabayar (expandable) -->
+      <button class="sb-action-btn sb-action-expandable" id="sbTargetBtn"
+        onclick="toggleSbTarget()">
+        <i class="bi bi-bullseye"></i>
+        <span>Target Prabayar</span>
+        <i class="bi bi-chevron-down sb-chevron"></i>
+      </button>
+      <div class="sb-expand-body" id="sbTargetBody" style="display:none">
+        <div id="sbTargetInner">
+          <p class="sb-target-hint">Buka panel ini setelah data dimuat untuk melihat daftar ULP.</p>
+        </div>
       </div>
 
       <!-- Settings (expandable) -->
@@ -220,7 +233,7 @@
       <span id="hdrThemeIcon"><i class="bi bi-moon"></i></span>
     </button>
     <button class="btn-refresh" id="hdrBtnRefresh"
-      onclick="loadData();loadRingkasan();loadRiwayat()">
+      onclick="loadData();loadRingkasan();loadRiwayat();loadTargetSheet()">
       <i class="bi bi-arrow-clockwise"></i><span class="btn-text"> Perbarui</span>
     </button>
   </div>
