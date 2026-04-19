@@ -213,6 +213,6 @@ footer {
   .hdr-icon { width: 32px; height: 32px; font-size: 1.05rem; }
   .hdr-title h1 { font-size: .85rem; }
   .hdr-title p  { display: none; }
-  /* Hide timestamp on tiny screens — it's in the sidebar */
-  .hdr-right { display: none; }
+  /* Hide theme & refresh buttons on tiny screens — keep date picker */
+  .hdr-right .btn-refresh { display: none; }
 }
