@@ -209,10 +209,12 @@ footer {
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   main { padding: .75rem .65rem 1.5rem; }
-  header { padding: .6rem .9rem; }
-  .hdr-icon { width: 32px; height: 32px; font-size: 1.05rem; }
-  .hdr-title h1 { font-size: .85rem; }
+  header { padding: .6rem .9rem; gap: .5rem; }
+  .hdr-icon { display: none; }
+  .hdr-left { flex: 1; min-width: 0; overflow: hidden; }
+  .hdr-title h1 { font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hdr-title p  { display: none; }
+  .hdr-right { flex-shrink: 0; }
   /* Hide theme & refresh buttons on tiny screens — keep date picker */
   .hdr-right .btn-refresh { display: none; }
 }
