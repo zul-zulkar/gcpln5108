@@ -49,6 +49,8 @@ let ringkasanTblSortCol   = 'tanggal';
 let ringkasanTblSortDir   = 'desc';
 let riwayatTblSortCol  = 'tanggal';
 let riwayatTblSortDir  = 'desc';
+let viewMode           = 'kumulatif';   // 'kumulatif' | 'harian' — global across all viz
+let _riwayatGen        = 0;             // incremented on each data load; invalidates cache
 let _msOutsideListenerAttached = false;
 let drilldownEmail = null;        // email of bar-chart-clicked enumerator, null = no drill
 let alertThresholdPasca = 0;      // dynamic default = overall pct pasca for current ULP
@@ -177,6 +179,13 @@ function _todayDDMMYYYY() {
 function _todayISO() {
   const t = new Date();
   return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+function _prevDDMMYYYY(s) {
+  const [d, m, y] = (s || _todayDDMMYYYY()).split('/').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - 1);
+  return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
 }
 
 // Helper: selectedDate (DD/MM/YYYY) → YYYY-MM-DD for date inputs
@@ -445,6 +454,11 @@ function getDisplayData() {
   return activeUlp === 'all' ? allData : allData.filter(d => d.ulp === activeUlp);
 }
 
+function getEffectiveDisplayData() {
+  const base = viewMode === 'harian' ? _getHarianAllData() : allData;
+  return activeUlp === 'all' ? base : base.filter(d => d.ulp === activeUlp);
+}
+
 function filterByUlp(idx) {
   drilldownEmail = null;
   const old = document.getElementById('drilldownBanner');
@@ -462,6 +476,120 @@ function _ulpRiwayat() {
   return activeUlp === 'all'
     ? riwayatData
     : riwayatData.filter(d => (ulpMap[d.email.toLowerCase()] || '') === activeUlp);
+}
+
+// Compute daily (non-cumulative) deltas per petugas from cumulative riwayat data.
+// Uses full rawData (before date filter) so the first visible day shows correct delta.
+function _computeHarianDelta(rawData) {
+  const byEmail = {};
+  rawData.forEach(d => {
+    if (!byEmail[d.email]) byEmail[d.email] = [];
+    byEmail[d.email].push(d);
+  });
+  const result = [];
+  Object.values(byEmail).forEach(rows => {
+    rows.sort(_cmpTanggal);
+    rows.forEach((row, i) => {
+      const prev = i > 0 ? rows[i - 1] : null;
+      const dlt = (cur, pv) => prev ? Math.max(0, n(cur) - n(pv)) : n(cur);
+      result.push({
+        tanggal:           row.tanggal,
+        email:             row.email,
+        nama:              row.nama,
+        open_pasca:        dlt(row.open_pasca,   prev?.open_pasca),
+        submit_pasca:      dlt(row.submit_pasca, prev?.submit_pasca),
+        reject_pasca:      dlt(row.reject_pasca, prev?.reject_pasca),
+        open_praba:        dlt(row.open_praba,   prev?.open_praba),
+        submit_praba:      dlt(row.submit_praba, prev?.submit_praba),
+        reject_praba:      dlt(row.reject_praba, prev?.reject_praba),
+        _cum_open_pasca:   n(row.open_pasca),
+        _cum_submit_pasca: n(row.submit_pasca),
+        _cum_reject_pasca: n(row.reject_pasca),
+        _cum_open_praba:   n(row.open_praba),
+        _cum_submit_praba: n(row.submit_praba),
+        _cum_reject_praba: n(row.reject_praba),
+      });
+    });
+  });
+  return result;
+}
+
+// Compute harian deltas for allData (selected-date snapshot) using riwayatData as the
+// previous-day source. Preserves _cum_* fields so pct denominators stay correct.
+function _getHarianAllData() {
+  const prevDate = _prevDDMMYYYY(selectedDate);
+  const prevMap  = {};
+  riwayatData.forEach(d => {
+    if (d.tanggal === prevDate) prevMap[d.email.toLowerCase()] = d;
+  });
+  return allData.map(d => {
+    const email = (d.email_pasca || d.email_praba || '').toLowerCase();
+    const prev  = prevMap[email];
+    const dlt   = (cur, pv) => prev ? Math.max(0, n(cur) - n(pv)) : n(cur);
+    return {
+      ...d,
+      open_pasca:        dlt(d.open_pasca,   prev?.open_pasca),
+      submit_pasca:      dlt(d.submit_pasca, prev?.submit_pasca),
+      reject_pasca:      dlt(d.reject_pasca, prev?.reject_pasca),
+      open_praba:        dlt(d.open_praba,   prev?.open_praba),
+      submit_praba:      dlt(d.submit_praba, prev?.submit_praba),
+      reject_praba:      dlt(d.reject_praba, prev?.reject_praba),
+      _cum_open_pasca:   n(d.open_pasca),
+      _cum_submit_pasca: n(d.submit_pasca),
+      _cum_reject_pasca: n(d.reject_pasca),
+      _cum_open_praba:   n(d.open_praba),
+      _cum_submit_praba: n(d.submit_praba),
+      _cum_reject_praba: n(d.reject_praba),
+    };
+  });
+}
+
+// Compute harian (non-cumulative) deltas from a time-series ringkasan array.
+function _computeHarianRingkasan(rows) {
+  const sorted = [...rows].sort(_cmpTanggal);
+  return sorted.map((row, i) => {
+    const prev = i > 0 ? sorted[i - 1] : null;
+    const dlt  = (cur, pv) => prev ? Math.max(0, n(cur) - n(pv)) : n(cur);
+    return {
+      tanggal:           row.tanggal,
+      waktu:             row.waktu,
+      open_pasca:        dlt(row.open_pasca,   prev?.open_pasca),
+      submit_pasca:      dlt(row.submit_pasca, prev?.submit_pasca),
+      reject_pasca:      dlt(row.reject_pasca, prev?.reject_pasca),
+      open_praba:        dlt(row.open_praba,   prev?.open_praba),
+      submit_praba:      dlt(row.submit_praba, prev?.submit_praba),
+      reject_praba:      dlt(row.reject_praba, prev?.reject_praba),
+      _cum_open_pasca:   n(row.open_pasca),
+      _cum_submit_pasca: n(row.submit_pasca),
+      _cum_reject_pasca: n(row.reject_pasca),
+      _cum_open_praba:   n(row.open_praba),
+      _cum_submit_praba: n(row.submit_praba),
+      _cum_reject_praba: n(row.reject_praba),
+    };
+  });
+}
+
+// Returns ULP-filtered riwayat rows, with harian deltas pre-computed when active.
+// Cached by (mode, activeUlp, generation) so repeated calls within one render cycle are free.
+let _baseRiwayatCache = null;
+let _baseRiwayatCacheKey = '';
+function _baseRiwayat() {
+  const key = `${viewMode}:${activeUlp}:${_riwayatGen}`;
+  if (_baseRiwayatCache && _baseRiwayatCacheKey === key) return _baseRiwayatCache;
+  _baseRiwayatCacheKey = key;
+  return (_baseRiwayatCache = viewMode === 'harian' ? _computeHarianDelta(_ulpRiwayat()) : _ulpRiwayat());
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  _baseRiwayatCache = null;
+  // Update toggle buttons that persist across renders (riwayat section)
+  document.querySelectorAll('[data-vm-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.vmMode === mode);
+  });
+  if (allData.length)        render();
+  if (ringkasanData.length)  renderRingkasan();
+  if (riwayatData.length)    refreshRiwayatViz();
 }
 
 // Helper: ringkasan source — pakai ringkasanData saat "Semua ULP",
@@ -484,8 +612,7 @@ function _getRingkasanSource() {
     row.submit_praba += n(d.submit_praba);
     row.reject_praba += n(d.reject_praba);
   });
-  return Object.values(byDate)
-    .sort((a, b) => parseDMY(a.tanggal).localeCompare(parseDMY(b.tanggal)));
+  return Object.values(byDate).sort(_cmpTanggal);
 }
 
 function totals(arr, sfx) {
@@ -496,9 +623,15 @@ function totals(arr, sfx) {
   }), { open: 0, submit: 0, reject: 0 });
 }
 
+// Shared date comparator for objects with a .tanggal "DD/MM/YYYY" field
+const _cmpTanggal = (a, b) => parseDMY(a.tanggal).localeCompare(parseDMY(b.tanggal));
+
 function pct(sub, open, rej) {
   const tot = sub + open + rej;
   return tot > 0 ? ((sub / tot) * 100).toFixed(1) : '0.0';
+}
+function pctOf(sub, total) {
+  return total > 0 ? ((sub / total) * 100).toFixed(1) : '0.0';
 }
 function fmtPct(v) { return String(v).replace('.', ','); }
 
@@ -552,20 +685,28 @@ function applyDateFilter(data, filter) {
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   ulpList = getUlps();
-  const display  = getDisplayData();
-  const tPasca   = totals(display, 'pasca');
-  const tPraba   = totals(display, 'praba');
+  const display    = getEffectiveDisplayData();
+  const tPasca     = totals(display, 'pasca');
+  const tPraba     = totals(display, 'praba');
+  const isHarian   = viewMode === 'harian';
+  const cumDisplay = isHarian ? getDisplayData() : null;
+  const cumPasca   = isHarian ? totals(cumDisplay, 'pasca') : null;
+  const cumPraba   = isHarian ? totals(cumDisplay, 'praba') : null;
 
-  // ULP filter buttons
+  // ULP filter buttons + global Kumulatif/Harian toggle
   const filterBtns = [
     `<button class="ulp-btn${activeUlp === 'all' ? ' active' : ''}" onclick="filterByUlp(0)">Semua ULP</button>`,
     ...ulpList.map((u, i) =>
       `<button class="ulp-btn${activeUlp === u ? ' active' : ''}" onclick="filterByUlp(${i + 1})">${u}</button>`)
   ].join('');
+  const modeBtns = `<span style="margin-left:auto;display:flex;align-items:center;gap:.3rem;flex-shrink:0">
+    <button class="dfq-btn${viewMode==='kumulatif'?' active':''}" data-vm-mode="kumulatif" onclick="setViewMode('kumulatif')" title="Tampilkan nilai kumulatif (akumulasi s.d. tanggal dipilih)">Kumulatif</button>
+    <button class="dfq-btn${viewMode==='harian'?' active':''}" data-vm-mode="harian" onclick="setViewMode('harian')" title="Tampilkan capaian harian (non-kumulatif)">Harian</button>
+  </span>`;
 
   document.getElementById('content').innerHTML = `
     <!-- ULP Filter Bar -->
-    <div class="ulp-filter">${filterBtns}</div>
+    <div class="ulp-filter" style="flex-wrap:wrap;gap:.35rem .5rem;align-items:center">${filterBtns}${modeBtns}</div>
 
     <!-- ULP Overview -->
     ${ulpOverviewSection()}
@@ -573,8 +714,8 @@ function render() {
     <!-- Summary Cards -->
     <div class="section-title" id="sec-ringkasan">Ringkasan Statistik</div>
     <div class="summary-grid">
-      ${summaryCard('pasca', 'PASCABAYAR', tPasca, display.length)}
-      ${summaryCard('praba', 'PRABAYAR',   tPraba, display.length)}
+      ${summaryCard('pasca', 'PASCABAYAR', tPasca, display.length, cumPasca)}
+      ${summaryCard('praba', 'PRABAYAR',   tPraba, display.length, cumPraba)}
     </div>
 
     <!-- Top Submitters -->
@@ -650,25 +791,36 @@ function render() {
 function ulpOverviewSection() {
   if (!ulpList.length) return '';
 
+  const effectiveAll = viewMode === 'harian' ? _getHarianAllData() : allData;
+
   const cards = ulpList.map((u, idx) => {
-    const uData = allData.filter(d => d.ulp === u);
-    const tp    = totals(uData, 'pasca');
-    const tpr   = totals(uData, 'praba');
-    const rp    = pct(tp.submit, tp.open, tp.reject);
+    const uData  = effectiveAll.filter(d => d.ulp === u);
+    const cumData = viewMode === 'harian' ? allData.filter(d => d.ulp === u) : uData;
+    const tp     = totals(uData,  'pasca');
+    const tpr    = totals(uData,  'praba');
+    const cumTpr = totals(cumData,'praba');
+    const cumTotP = n(totals(cumData,'pasca').open) + n(totals(cumData,'pasca').submit) + n(totals(cumData,'pasca').reject);
+    const rp  = viewMode === 'harian' && cumTotP > 0
+      ? pctOf(tp.submit, cumTotP)
+      : pct(tp.submit, tp.open, tp.reject);
     const isAct = activeUlp === u;
 
-    // Prabayar: use target-based progress when target is set for this ULP
-    const prabaTarget = _getTargetPraba(u);
+    // Prabayar: always compare cumulative submit vs target; harian shows delta value
+    const prabaTarget   = _getTargetPraba(u);
+    const submitForTgt  = viewMode === 'harian' ? cumTpr.submit : tpr.submit;
     let rrPct, rrBar, rrVal, rrExtra;
     if (prabaTarget > 0) {
-      rrPct   = +((tpr.submit / prabaTarget * 100).toFixed(1));
+      rrPct   = +((submitForTgt / prabaTarget * 100).toFixed(1));
       rrBar   = Math.min(rrPct, 100);
       rrVal   = `${tpr.submit.toLocaleString('id-ID')}/${prabaTarget.toLocaleString('id-ID')}`;
-      rrExtra = tpr.submit >= prabaTarget
+      rrExtra = submitForTgt >= prabaTarget
         ? '<span class="ulp-tgt-done"><i class="bi bi-check-circle-fill"></i></span>'
         : '';
     } else {
-      rrPct   = pct(tpr.submit, tpr.open, tpr.reject);
+      const cumTotR = n(totals(cumData,'praba').open) + n(totals(cumData,'praba').submit) + n(totals(cumData,'praba').reject);
+      rrPct   = viewMode === 'harian' && cumTotR > 0
+        ? pctOf(tpr.submit, cumTotR)
+        : pct(tpr.submit, tpr.open, tpr.reject);
       rrBar   = rrPct;
       rrVal   = `${tpr.submit.toLocaleString('id-ID')} sub`;
       rrExtra = '';
@@ -688,7 +840,7 @@ function ulpOverviewSection() {
         </div>
         <div class="ulp-prog-row">
           <span class="ulp-badge praba">Praba</span>
-          <div class="ulp-prog-track"><div class="ulp-prog-fill-r${tpr.submit >= prabaTarget && prabaTarget > 0 ? ' ulp-fill-done' : ''}" style="width:${rrBar}%"></div></div>
+          <div class="ulp-prog-track"><div class="ulp-prog-fill-r${submitForTgt >= prabaTarget && prabaTarget > 0 ? ' ulp-fill-done' : ''}" style="width:${rrBar}%"></div></div>
           <span class="ulp-prog-pct">${rrPct}%</span>
           <span class="ulp-prog-val">${rrVal}</span>
           ${rrExtra}
@@ -703,18 +855,21 @@ function ulpOverviewSection() {
     </div>`;
 }
 
-function summaryCard(sfx, label, t, count) {
-  const cls  = sfx === 'pasca' ? 'pasca' : 'praba';
-  const rate = pct(t.submit, t.open, t.reject);
+function summaryCard(sfx, label, t, count, tCum) {
+  const cls    = sfx === 'pasca' ? 'pasca' : 'praba';
+  const cumTot = tCum ? (n(tCum.open) + n(tCum.submit) + n(tCum.reject)) : 0;
+  const rate   = tCum && cumTot > 0 ? pctOf(t.submit, cumTot) : pct(t.submit, t.open, t.reject);
   let progHtml;
 
   if (sfx === 'praba') {
     const tgt = _getTargetPraba(activeUlp);
+    // Use cumulative submit vs target (target is a total goal, not daily)
+    const submitForTgt = tCum ? tCum.submit : t.submit;
     if (tgt > 0) {
-      const rawPct = +((t.submit / tgt * 100).toFixed(1));
+      const rawPct = +((submitForTgt / tgt * 100).toFixed(1));
       const barW   = Math.min(rawPct, 100);
-      const sisa   = Math.max(tgt - t.submit, 0);
-      const done   = t.submit >= tgt;
+      const sisa   = Math.max(tgt - submitForTgt, 0);
+      const done   = submitForTgt >= tgt;
       progHtml = `
         <div class="prog-section">
           <div class="prog-meta">
@@ -725,7 +880,7 @@ function summaryCard(sfx, label, t, count) {
             <div class="prog-fill${done ? ' prog-fill-done' : ''}" style="width:${barW}%"></div>
           </div>
           <div class="prog-target-info">
-            <span class="prog-target-fraction">${t.submit.toLocaleString('id-ID')} / ${tgt.toLocaleString('id-ID')} pelanggan</span>
+            <span class="prog-target-fraction">${submitForTgt.toLocaleString('id-ID')} / ${tgt.toLocaleString('id-ID')} pelanggan</span>
             ${done
               ? '<span class="prog-target-done"><i class="bi bi-check-circle-fill"></i> Target Tercapai</span>'
               : `<span class="prog-target-sisa">${sisa.toLocaleString('id-ID')} sisa</span>`}
@@ -775,7 +930,7 @@ function summaryCard(sfx, label, t, count) {
 }
 
 function topCard(sfx, title) {
-  const top5 = [...getDisplayData()]
+  const top5 = [...getEffectiveDisplayData()]
     .filter(d => typeof d[`submit_${sfx}`] === 'number')
     .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]))
     .slice(0, 5);
@@ -796,7 +951,7 @@ function topCard(sfx, title) {
 
 function renderTable() {
   const q    = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  const base = getDisplayData();
+  const base = getEffectiveDisplayData();
   filtered   = base.filter(d => {
     const nama  = (d.nama_pasca || d.nama_praba).toLowerCase();
     const email = (d.email_pasca || d.email_praba).toLowerCase();
@@ -835,8 +990,10 @@ function renderTable() {
     const nama    = toProper(namaRaw);
     const email   = (d.email_pasca || d.email_praba || '').toLowerCase();
     const isDrill = drilldownEmail && email === drilldownEmail;
-    const ppasca  = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
-    const ppraba  = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+    const cumTotP = n(d._cum_open_pasca) + n(d._cum_submit_pasca) + n(d._cum_reject_pasca);
+    const cumTotR = n(d._cum_open_praba) + n(d._cum_submit_praba) + n(d._cum_reject_praba);
+    const ppasca  = cumTotP > 0 ? pctOf(n(d.submit_pasca), cumTotP) : pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+    const ppraba  = cumTotR > 0 ? pctOf(n(d.submit_praba), cumTotR) : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
     return `<tr${isDrill ? ' class="row-drilldown"' : ''}>
       <td class="td-no col-freeze-no">${i + 1}</td>
       <td class="td-nama col-nama" title="${nama}">${nama}</td>
@@ -879,7 +1036,7 @@ function renderOneChart(sfx) {
   if (isPasca) { if (chartPasca) { chartPasca.destroy(); chartPasca = null; } }
   else         { if (chartPraba) { chartPraba.destroy(); chartPraba = null; } }
 
-  const sorted = [...getDisplayData()]
+  const sorted = [...getEffectiveDisplayData()]
     .filter(d => typeof d[`submit_${sfx}`] === 'number' || d[`submit_${sfx}`] === 0)
     .sort((a, b) => n(b[`submit_${sfx}`]) - n(a[`submit_${sfx}`]));
 
@@ -1064,7 +1221,7 @@ function _sortArr(arr, col, dir) {
   return [...arr].sort((a, b) => {
     let cmp;
     if (col === 'tanggal') {
-      cmp = parseDMY(a.tanggal).localeCompare(parseDMY(b.tanggal));
+      cmp = _cmpTanggal(a, b);
     } else if (col === 'nama') {
       cmp = (a.nama || a.email || '').toLowerCase().localeCompare((b.nama || b.email || '').toLowerCase());
     } else {
@@ -1101,30 +1258,42 @@ function renderRingkasan() {
     return;
   }
 
-  // Apply ULP filter then date filter
-  const filt        = applyDateFilter(_getRingkasanSource(), ringkasanFilter);
+  // Apply view mode, then ULP filter, then date filter
+  const rkSrc   = _getRingkasanSource();
+  const rkView  = viewMode === 'harian' ? _computeHarianRingkasan(rkSrc) : rkSrc;
+  const filt    = applyDateFilter(rkView, ringkasanFilter);
   // Chart: newest first (left)
-  const display     = [...filt].reverse();
+  const display = [...filt].reverse();
   const labels      = display.map(d => d.tanggal);
   const submitPasca = display.map(d => n(d.submit_pasca));
   const submitPraba = display.map(d => n(d.submit_praba));
   const openPasca   = display.map(d => n(d.open_pasca));
   const openPraba   = display.map(d => n(d.open_praba));
-  const pctPascaArr = display.map(d => pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca)));
+  const pctPascaArr = display.map(d => {
+    const ct = n(d._cum_open_pasca) + n(d._cum_submit_pasca) + n(d._cum_reject_pasca);
+    return ct > 0 ? pctOf(n(d.submit_pasca), ct) : pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+  });
 
   // Prabayar %: gunakan target jika sudah ditetapkan, fallback ke completion rate
   const prabaChartTgt = _getTargetPraba(activeUlp);
   const pctPrabaArr   = prabaChartTgt > 0
-    ? display.map(d => +((n(d.submit_praba) / prabaChartTgt * 100).toFixed(1)))
-    : display.map(d => pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
+    ? display.map(d => +((n(d._cum_submit_praba ?? d.submit_praba) / prabaChartTgt * 100).toFixed(1)))
+    : display.map(d => {
+        const ct = n(d._cum_open_praba) + n(d._cum_submit_praba) + n(d._cum_reject_praba);
+        return ct > 0 ? pctOf(n(d.submit_praba), ct) : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+      });
 
   // Table: sortable
   const arrH    = col => ringkasanTblSortCol === col ? (ringkasanTblSortDir === 'asc' ? ' ▲' : ' ▼') : '';
   const tblRows = _sortArr(filt, ringkasanTblSortCol, ringkasanTblSortDir).map(d => {
-    const pp = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+    const cumTotP = n(d._cum_open_pasca) + n(d._cum_submit_pasca) + n(d._cum_reject_pasca);
+    const cumTotR = n(d._cum_open_praba) + n(d._cum_submit_praba) + n(d._cum_reject_praba);
+    const pp = cumTotP > 0 ? pctOf(n(d.submit_pasca), cumTotP) : pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+    // Prabayar: target-based → use cumulative submit vs target; else use cumulative total as denominator
+    const submitForTgt = n(d._cum_submit_praba ?? d.submit_praba);
     const pr = prabaChartTgt > 0
-      ? +((n(d.submit_praba) / prabaChartTgt * 100).toFixed(1))
-      : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+      ? +((submitForTgt / prabaChartTgt * 100).toFixed(1))
+      : (cumTotR > 0 ? pctOf(n(d.submit_praba), cumTotR) : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba)));
     return `
     <tr>
       <td>${d.tanggal}</td>
@@ -1265,6 +1434,7 @@ function _gsheetRiwayatCB(data) {
         reject_praba: cv(ci('reject praba')),
       });
     });
+    _riwayatGen++;          // invalidate _baseRiwayat cache
     renderRiwayat();
   } catch(e) { console.error('Riwayat CB:', e); }
 }
@@ -1312,6 +1482,9 @@ function renderRiwayat() {
             ${_rvHdrActive ? `title="Batas tanggal otomatis dari filter header (${selectedDate})"` : ''}>
         </div>
         <button class="dfq-btn" onclick="resetRiwayatFilter()" title="Atur ulang semua filter" style="margin-left:.25rem"><i class="bi bi-arrow-counterclockwise"></i> Atur Ulang</button>
+        <span class="dfq-sep">|</span>
+        <button class="dfq-btn${viewMode==='kumulatif'?' active':''}" data-vm-mode="kumulatif" onclick="setViewMode('kumulatif')" title="Tampilkan nilai kumulatif">Kumulatif</button>
+        <button class="dfq-btn${viewMode==='harian'?' active':''}" data-vm-mode="harian" onclick="setViewMode('harian')" title="Tampilkan capaian per hari (non-kumulatif)">Harian</button>
         <div class="ms-wrap" id="msPencacahWrap">
           <button class="ms-trigger" onclick="toggleMsPencacah(event)">
             <span id="msRiwayatLabel">${getMsLabel()}</span>
@@ -1536,7 +1709,7 @@ function clearPencacah() {
 
 // ── Refresh riwayat chart + table (no full DOM rebuild) ───────────────────────
 function refreshRiwayatViz() {
-  const filteredData = applyDateFilter(_ulpRiwayat(), riwayatFilter);
+  const filteredData = applyDateFilter(_baseRiwayat(), riwayatFilter);
   const allEmails    = [...new Set(filteredData.map(d => d.email).filter(Boolean))].sort();
   // Latest dates on the LEFT
   const allDates     = [...new Set(filteredData.map(d => d.tanggal))].sort((a, b) => parseDMY(a).localeCompare(parseDMY(b))).reverse();
@@ -1544,10 +1717,17 @@ function refreshRiwayatViz() {
   const isAll = riwayatSelectedEmails.has('__all__') || riwayatSelectedEmails.size === 0;
   const activeEmails = isAll ? allEmails : allEmails.filter(e => riwayatSelectedEmails.has(e));
 
+  // Pre-group by email once — O(M) instead of O(N×M) per-email find/filter
+  const byEmailDate = {};
+  const emailName   = {};
+  filteredData.forEach(d => {
+    if (!byEmailDate[d.email]) { byEmailDate[d.email] = {}; emailName[d.email] = d.nama; }
+    byEmailDate[d.email][d.tanggal] = d[riwayatMetric];
+  });
+
   const datasets = activeEmails.map((email, i) => {
-    const nama   = filteredData.find(d => d.email === email)?.nama || email;
-    const byDate = {};
-    filteredData.filter(d => d.email === email).forEach(d => { byDate[d.tanggal] = d[riwayatMetric]; });
+    const nama   = emailName[email] || email;
+    const byDate = byEmailDate[email] || {};
     const data = allDates.map(dt => n(byDate[dt]));
     const hue = Math.round(i * 360 / Math.max(1, activeEmails.length));
     return {
@@ -1597,8 +1777,10 @@ function refreshRiwayatViz() {
   if (tbody) {
     tbody.innerHTML = tblSrc.length
       ? tblSrc.map(d => {
-        const pp = pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
-        const pr = pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
+        const cumTotP = n(d._cum_open_pasca) + n(d._cum_submit_pasca) + n(d._cum_reject_pasca);
+        const cumTotR = n(d._cum_open_praba) + n(d._cum_submit_praba) + n(d._cum_reject_praba);
+        const pp = cumTotP > 0 ? pctOf(n(d.submit_pasca), cumTotP) : pct(n(d.submit_pasca), n(d.open_pasca), n(d.reject_pasca));
+        const pr = cumTotR > 0 ? pctOf(n(d.submit_praba), cumTotR) : pct(n(d.submit_praba), n(d.open_praba), n(d.reject_praba));
         return `
       <tr>
         <td>${d.tanggal}</td>
@@ -1668,12 +1850,15 @@ function exportRingkasan() {
 }
 
 function exportRiwayat() {
-  const fd     = applyDateFilter(_ulpRiwayat(), riwayatFilter);
+  const isHarian = viewMode === 'harian';
+  const fd     = applyDateFilter(_baseRiwayat(), riwayatFilter);
   const isAll  = riwayatSelectedEmails.has('__all__') || riwayatSelectedEmails.size === 0;
   const src    = isAll ? fd : fd.filter(d => riwayatSelectedEmails.has(d.email));
+  const label  = isHarian ? 'Capaian Harian' : 'Riwayat';
+  const prefix = isHarian ? 'capaian_harian' : 'riwayat_pencacah';
   const header = ['Tanggal','Nama','Email','Open Pasca','Submit Pasca','Reject Pasca','Open Praba','Submit Praba','Reject Praba'];
   const rows   = src.map(d => [d.tanggal, toProper(d.nama || d.email), d.email, n(d.open_pasca), n(d.submit_pasca), n(d.reject_pasca), n(d.open_praba), n(d.submit_praba), n(d.reject_praba)]);
-  _downloadXLSX([header, ...rows], 'Riwayat', _exportFilename('riwayat_pencacah'));
+  _downloadXLSX([header, ...rows], label, _exportFilename(prefix));
 }
 
 // ── Alert threshold ────────────────────────────────────────────────────────────
