@@ -22,8 +22,13 @@ venv/
 Thumbs.db
 desktop.ini
 
-# Scraper
-gcpln5108/gui_fasih.py
-gcpln5108/requirements.txt
-gcpln5108/scrape_fasih.py
-gcpln5108/web_fasih.py
+# Scraper (subfolder scraper/) — KODE di-commit, DATA jangan
+scraper/input/*.xlsx
+scraper/input/*.xls
+scraper/output/
+scraper/uploads/
+scraper/rawdata/
+scraper/__pycache__/
+scraper/build/
+scraper/dist/
+scraper/fasih_settings.json
